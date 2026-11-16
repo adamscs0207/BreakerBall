@@ -1,12 +1,11 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
   --orange: #f47732;
   --orange-bright: #ff9b4a;
   --cream: #f5ead8;
-  --ink: #17130f;
   --muted: #a99b89;
-  --panel: #262019;
   --line: rgba(255, 239, 213, .14);
 }
 
@@ -32,12 +31,12 @@ button {
 }
 
 .arena-shell {
-  width: min(1420px, calc(100% - 48px));
+  width: min(1420px, calc(100% - 36px));
   margin: 0 auto;
 }
 
 .masthead {
-  min-height: 82px;
+  min-height: 65px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -46,20 +45,20 @@ button {
 
 .brand {
   display: flex;
-  gap: 13px;
+  gap: 11px;
   align-items: center;
   text-decoration: none;
   color: var(--cream);
 }
 
 .brand-mark {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border: 2px solid var(--orange);
   transform: skew(-7deg);
-  font: 900 21px "Barlow Condensed", sans-serif;
+  font: 900 18px "Barlow Condensed", sans-serif;
   color: #fff;
   background: linear-gradient(145deg, #e96d2c, #8f351d);
   box-shadow: 4px 4px 0 #48251a;
@@ -70,8 +69,8 @@ button {
 }
 
 .brand-name {
-  font: 800 20px "Barlow Condensed", sans-serif;
-  letter-spacing: 1.4px;
+  font: 800 18px "Barlow Condensed", sans-serif;
+  letter-spacing: 1.2px;
   line-height: 1;
 }
 
@@ -81,23 +80,25 @@ button {
 
 .brand-name small {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   color: #958675;
-  font: 700 8px "DM Sans", sans-serif;
-  letter-spacing: 2.3px;
+  font: 700 7px "DM Sans", sans-serif;
+  letter-spacing: 2px;
 }
 
-.masthead-right {
+.masthead-right,
+.court-top-actions,
+.court-bottom-right {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 12px;
 }
 
 .season-tag {
   color: #b8a894;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 800;
-  letter-spacing: 1.7px;
+  letter-spacing: 1.5px;
 }
 
 .season-tag i,
@@ -108,7 +109,7 @@ button {
   border-radius: 50%;
   background: #7de0a1;
   box-shadow: 0 0 10px #7de0a1;
-  margin: 0 7px;
+  margin: 0 6px;
 }
 
 .sound-button,
@@ -116,9 +117,9 @@ button {
   border: 1px solid #65513c;
   background: #30271e;
   color: #e9d8c2;
-  padding: 9px 12px;
+  padding: 7px 10px;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 1px;
 }
@@ -132,20 +133,21 @@ button {
 .hero-strip {
   display: flex;
   justify-content: space-between;
-  align-items: end;
-  padding: 35px 5px 25px;
+  align-items: center;
+  gap: 15px;
+  padding: 17px 5px 14px;
 }
 
 .kicker {
   color: var(--orange-bright);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 900;
-  letter-spacing: 2.4px;
-  margin-bottom: 8px;
+  letter-spacing: 2px;
+  margin-bottom: 5px;
 }
 
 .hero-strip h1 {
-  font: 900 clamp(42px, 6vw, 72px)/.9 "Barlow Condensed", sans-serif;
+  font: 900 clamp(32px, 4vw, 52px)/.9 "Barlow Condensed", sans-serif;
   letter-spacing: 1px;
 }
 
@@ -156,35 +158,35 @@ h2 em {
 }
 
 .hero-copy {
-  margin-top: 12px;
+  margin-top: 7px;
   color: #b5a895;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .hero-stats {
   display: flex;
-  gap: 28px;
+  gap: 20px;
   padding: 0 8px 3px;
 }
 
 .hero-stats div {
   border-left: 2px solid #754327;
-  padding-left: 12px;
+  padding-left: 10px;
 }
 
 .hero-stats span,
 .score-cell span {
   display: block;
   color: #9b8c7a;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 900;
-  letter-spacing: 1.7px;
+  letter-spacing: 1.5px;
 }
 
 .hero-stats strong {
   display: block;
-  margin-top: 5px;
-  font: 800 23px "Barlow Condensed", sans-serif;
+  margin-top: 4px;
+  font: 800 20px "Barlow Condensed", sans-serif;
   color: #fff1dc;
 }
 
@@ -194,12 +196,12 @@ h2 em {
   gap: 2px;
   background: #5a4530;
   border: 1px solid #6b5035;
-  box-shadow: 0 8px 25px #0005;
+  box-shadow: 0 6px 18px #0005;
 }
 
 .score-cell {
   min-width: 0;
-  padding: 12px 17px 10px;
+  padding: 8px 13px 7px;
   background: linear-gradient(135deg, #30271f, #211b16);
   border-right: 1px solid #4c3928;
 }
@@ -207,17 +209,17 @@ h2 em {
 .score-cell strong {
   display: block;
   color: #fff4e4;
-  font: 800 clamp(18px, 2.2vw, 27px) "Barlow Condensed", sans-serif;
+  font: 800 clamp(17px, 2vw, 23px) "Barlow Condensed", sans-serif;
   letter-spacing: 1px;
-  margin: 3px 0 1px;
+  margin: 2px 0 0;
   white-space: nowrap;
 }
 
 .score-cell small {
   color: #806d59;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 800;
-  letter-spacing: 1.4px;
+  letter-spacing: 1.2px;
 }
 
 .score-primary {
@@ -226,14 +228,14 @@ h2 em {
 
 .score-primary strong {
   color: #ffad68;
-  font-size: 32px;
+  font-size: 27px;
 }
 
 .court-section {
-  margin-top: 15px;
+  margin-top: 10px;
   background: #201912;
   border: 1px solid #6b4a2c;
-  box-shadow: 0 18px 45px #0008;
+  box-shadow: 0 12px 30px #0008;
 }
 
 .court-topline,
@@ -241,17 +243,17 @@ h2 em {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 42px;
-  padding: 0 15px;
+  min-height: 32px;
+  padding: 0 12px;
   background: linear-gradient(90deg, #33271d, #211a14);
   color: #bca98f;
 }
 
 .court-topline {
   border-bottom: 1px solid #63452b;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 900;
-  letter-spacing: 1.4px;
+  letter-spacing: 1.3px;
 }
 
 .court-status {
@@ -263,39 +265,40 @@ h2 em {
   margin-left: 0;
 }
 
-.court-top-actions,
-.court-bottom-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
 .arena-label {
   color: #e5c7a1;
+  font-size: 8px;
 }
 
 .canvas-wrap {
   position: relative;
   width: 100%;
+  height: min(58vh, 650px);
+  min-height: 260px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   background: #7b4728;
   overflow: hidden;
 }
 
 #gameCanvas {
   display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1000/650;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 1000 / 650;
+  object-fit: contain;
   touch-action: none;
   cursor: crosshair;
 }
 
 .court-bottomline {
-  min-height: 40px;
+  min-height: 31px;
   border-top: 1px solid #68472d;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 800;
-  letter-spacing: 1.1px;
+  letter-spacing: 1px;
 }
 
 .control-hint {
@@ -304,9 +307,9 @@ h2 em {
 
 .control-hint span {
   color: var(--orange-bright);
-  font-size: 15px;
+  font-size: 14px;
   vertical-align: middle;
-  margin-right: 5px;
+  margin-right: 4px;
 }
 
 #powerupStatus {
@@ -319,10 +322,10 @@ h2 em {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 12px;
   z-index: 5;
   background: linear-gradient(110deg, rgba(13,12,11,.86), rgba(20,14,10,.72));
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(4px);
 }
 
 .game-overlay.hidden {
@@ -330,54 +333,54 @@ h2 em {
 }
 
 .overlay-panel {
-  width: min(690px, 100%);
+  width: min(620px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
   text-align: center;
-  padding: 22px 25px;
+  padding: 13px 20px;
   background: linear-gradient(145deg, rgba(48,35,25,.96), rgba(21,18,15,.96));
   border: 1px solid rgba(255,183,113,.42);
-  box-shadow: 0 20px 70px #0009, inset 0 0 35px #f4773210;
+  box-shadow: 0 15px 45px #0009, inset 0 0 35px #f4773210;
 }
 
 .overlay-ball {
-  font-size: 46px;
+  font-size: 35px;
   filter: drop-shadow(0 8px 9px #0008);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   animation: ballBob 2.2s ease-in-out infinite;
 }
 
 @keyframes ballBob {
-  50% {
-    transform: translateY(-8px) rotate(13deg);
-  }
+  50% { transform: translateY(-6px) rotate(13deg); }
 }
 
 .overlay-panel h2 {
-  font: 900 clamp(30px, 5vw, 47px)/1 "Barlow Condensed", sans-serif;
+  font: 900 clamp(27px, 4vw, 40px)/1 "Barlow Condensed", sans-serif;
   letter-spacing: 1px;
-  margin: 4px 0 9px;
+  margin: 3px 0 6px;
 }
 
 .overlay-panel > p:not(.kicker) {
   color: #c3b29d;
-  font-size: 11px;
-  line-height: 1.6;
-  margin: 0 auto 16px;
-  max-width: 470px;
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 0 auto 10px;
+  max-width: 450px;
 }
 
 .mode-picker {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin: 15px 0 14px;
+  gap: 7px;
+  margin: 10px 0;
 }
 
 .mode-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 5px;
+  gap: 3px;
+  padding: 8px 4px;
   border: 1px solid #60452f;
   background: #2b2119;
   color: #f2dfc7;
@@ -389,56 +392,56 @@ h2 em {
 .mode-card.selected {
   border-color: var(--orange-bright);
   background: linear-gradient(145deg, #63351f, #39251a);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 18px #f4773225;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px #f4773225;
 }
 
 .mode-icon {
-  font-size: 21px;
+  font-size: 19px;
 }
 
 .mode-card b {
-  font: 800 13px "Barlow Condensed", sans-serif;
+  font: 800 12px "Barlow Condensed", sans-serif;
   letter-spacing: 1px;
 }
 
 .mode-card small {
   color: #ad9a83;
-  font-size: 8px;
+  font-size: 7px;
 }
 
 .tipoff-button {
   border: 0;
-  padding: 13px 34px;
+  padding: 10px 28px;
   background: linear-gradient(120deg, #ffad66, #e75d26);
   color: #25150d;
-  font: 900 15px "Barlow Condensed", sans-serif;
+  font: 900 14px "Barlow Condensed", sans-serif;
   letter-spacing: 2px;
   cursor: pointer;
-  box-shadow: 0 6px 20px #e75d2650;
+  box-shadow: 0 5px 16px #e75d2650;
   transition: .2s;
 }
 
 .tipoff-button:hover {
-  transform: translateY(-2px) scale(1.03);
+  transform: translateY(-2px) scale(1.02);
   filter: brightness(1.08);
 }
 
 .tipoff-button span {
-  margin-right: 7px;
+  margin-right: 6px;
 }
 
 .overlay-foot {
-  margin-top: 16px;
+  margin-top: 10px;
   color: #887865;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 800;
-  letter-spacing: 1.3px;
+  letter-spacing: 1px;
 }
 
 .overlay-foot b {
   color: var(--orange);
-  margin: 0 5px;
+  margin: 0 4px;
 }
 
 .announcement {
@@ -451,7 +454,7 @@ h2 em {
   pointer-events: none;
   white-space: nowrap;
   color: #fff1d9;
-  font: 900 clamp(24px, 4vw, 43px) "Barlow Condensed", sans-serif;
+  font: 900 clamp(22px, 4vw, 40px) "Barlow Condensed", sans-serif;
   letter-spacing: 2px;
   text-shadow: 0 4px 18px #000, 0 0 20px #ff7b2a;
 }
@@ -469,13 +472,13 @@ h2 em {
 .lower-grid {
   display: grid;
   grid-template-columns: 1.7fr 1fr;
-  gap: 16px;
-  margin-top: 28px;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .powerup-panel,
 .playbook-panel {
-  padding: 19px;
+  padding: 14px;
   background: linear-gradient(145deg, #2b241d, #201a15);
   border: 1px solid #57412d;
 }
@@ -485,35 +488,35 @@ h2 em {
   justify-content: space-between;
   align-items: end;
   gap: 12px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 .section-title h2,
 .playbook-panel h2 {
-  font: 900 25px "Barlow Condensed", sans-serif;
+  font: 900 22px "Barlow Condensed", sans-serif;
   letter-spacing: .6px;
 }
 
 .section-stamp {
   color: #a28d73;
   border: 1px solid #5c4733;
-  padding: 6px 8px;
-  font-size: 8px;
+  padding: 5px 7px;
+  font-size: 7px;
   font-weight: 900;
-  letter-spacing: 1.2px;
+  letter-spacing: 1px;
 }
 
 .powerup-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 9px;
+  gap: 7px;
 }
 
 .powerup-card {
   display: flex;
-  gap: 11px;
+  gap: 9px;
   min-width: 0;
-  padding: 12px;
+  padding: 9px;
   background: #201a15;
   border: 1px solid #493727;
   transition: .2s;
@@ -521,7 +524,7 @@ h2 em {
 
 .powerup-card.unlocked {
   border-color: var(--power-color);
-  box-shadow: inset 0 0 18px var(--power-glow), 0 0 14px var(--power-glow);
+  box-shadow: inset 0 0 18px var(--power-glow), 0 0 12px var(--power-glow);
 }
 
 .fire-card { --power-color: #ff8c54; --power-glow: #ff8c5425; }
@@ -530,21 +533,21 @@ h2 em {
 .double-card { --power-color: #c69bff; --power-glow: #c69bff25; }
 
 .power-icon {
-  flex: 0 0 35px;
-  font-size: 25px;
+  flex: 0 0 30px;
+  font-size: 22px;
   text-align: center;
 }
 
 .powerup-card h3 {
   color: var(--power-color);
-  font: 800 14px "Barlow Condensed", sans-serif;
+  font: 800 13px "Barlow Condensed", sans-serif;
   letter-spacing: 1px;
 }
 
 .powerup-card p {
   color: #b1a18d;
-  font-size: 9px;
-  margin: 4px 0 7px;
+  font-size: 8px;
+  margin: 3px 0 6px;
 }
 
 .powerup-card small {
@@ -552,8 +555,8 @@ h2 em {
   color: #867764;
   font-size: 7px;
   font-weight: 900;
-  letter-spacing: .7px;
-  margin-top: 5px;
+  letter-spacing: .5px;
+  margin-top: 4px;
 }
 
 .progress-track {
@@ -567,24 +570,24 @@ h2 em {
   width: 0;
   height: 100%;
   background: var(--power-color);
-  transition: width .25s;
+  transition: width .2s;
 }
 
 .playbook-panel ul {
   list-style: none;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .playbook-panel li {
   display: flex;
-  gap: 12px;
-  padding: 10px 0;
+  gap: 10px;
+  padding: 8px 0;
   border-top: 1px solid #4a3929;
 }
 
 .playbook-panel li > b {
   color: var(--orange-bright);
-  font: 900 21px "Barlow Condensed", sans-serif;
+  font: 900 19px "Barlow Condensed", sans-serif;
 }
 
 .playbook-panel li strong,
@@ -593,14 +596,14 @@ h2 em {
 }
 
 .playbook-panel li strong {
-  font-size: 10px;
+  font-size: 9px;
   color: #f2e2ce;
 }
 
 .playbook-panel li small {
   color: #9d8b76;
-  font-size: 9px;
-  margin-top: 4px;
+  font-size: 8px;
+  margin-top: 3px;
   line-height: 1.4;
 }
 
@@ -608,53 +611,84 @@ h2 em {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 22px 4px 28px;
-  margin-top: 20px;
+  padding: 14px 4px 18px;
+  margin-top: 14px;
   border-top: 1px solid var(--line);
   color: #766958;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 900;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.4px;
 }
 
 .arena-footer span:first-child {
   color: #d88b55;
 }
 
+/* Short screens: give the court as much room as possible. */
+@media (max-height: 800px) and (min-width: 700px) {
+  .hero-strip {
+    padding-top: 10px;
+    padding-bottom: 9px;
+  }
+
+  .hero-strip h1 {
+    font-size: 38px;
+  }
+
+  .hero-copy {
+    margin-top: 4px;
+  }
+
+  .canvas-wrap {
+    height: min(53vh, 520px);
+  }
+
+  .lower-grid {
+    margin-top: 12px;
+  }
+}
+
 @media (max-width: 850px) {
-  .arena-shell { width: calc(100% - 24px); }
+  .arena-shell { width: calc(100% - 20px); }
   .lower-grid { grid-template-columns: 1fr; }
-  .hero-stats { gap: 14px; }
-  .score-cell { padding: 10px 9px; }
-  .score-cell strong { font-size: 21px; }
+  .hero-stats { gap: 12px; }
+  .score-cell { padding: 8px 8px; }
+  .score-cell strong { font-size: 19px; }
+  .canvas-wrap { height: auto; min-height: 0; }
+  #gameCanvas { width: 100%; height: auto; }
 }
 
 @media (max-width: 600px) {
-  .arena-shell { width: calc(100% - 16px); }
-  .masthead { min-height: 65px; }
-  .brand-mark { width: 39px; height: 39px; font-size: 17px; }
-  .brand-name { font-size: 16px; }
+  .arena-shell { width: calc(100% - 14px); }
+  .masthead { min-height: 58px; }
+  .brand-mark { width: 35px; height: 35px; font-size: 16px; }
+  .brand-name { font-size: 15px; }
   .season-tag { display: none; }
-  .hero-strip { padding: 25px 3px 18px; display: block; }
-  .hero-stats { margin-top: 17px; }
+  .hero-strip { padding: 16px 3px 12px; display: block; }
+  .hero-stats { margin-top: 12px; }
   .scoreboard { grid-template-columns: repeat(3, 1fr); }
-  .score-cell { padding: 9px 8px; }
-  .score-cell strong { font-size: 20px; }
-  .score-primary strong { font-size: 24px; }
-  .court-topline { padding: 0 8px; font-size: 8px; }
+  .score-cell { padding: 7px 6px; }
+  .score-cell strong { font-size: 18px; }
+  .score-primary strong { font-size: 22px; }
+  .court-topline { padding: 0 7px; font-size: 7px; }
   .arena-label { display: none; }
-  .court-bottomline { padding: 7px 9px; gap: 8px; align-items: flex-start; flex-direction: column; }
+  .court-bottomline {
+    padding: 7px;
+    gap: 6px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
   .mode-picker { grid-template-columns: repeat(2, 1fr); }
-  .overlay-panel { padding: 15px 12px; }
+  .overlay-panel { padding: 12px 9px; }
   .overlay-foot { line-height: 1.7; }
-  .lower-grid { margin-top: 18px; }
-  .powerup-panel, .playbook-panel { padding: 13px; }
+  .lower-grid { margin-top: 13px; }
+  .powerup-panel, .playbook-panel { padding: 11px; }
   .section-stamp { display: none; }
   .arena-footer { flex-wrap: wrap; justify-content: center; text-align: center; }
 }
 
 @media (max-width: 360px) {
   .powerup-grid { grid-template-columns: 1fr; }
-  .sound-button { font-size: 8px; padding: 7px; }
-  .brand-name { font-size: 14px; }
+  .sound-button { font-size: 8px; padding: 6px; }
+  .brand-name { font-size: 13px; }
 }
