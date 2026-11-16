@@ -1,37 +1,57 @@
 
 // ============================================================
 // FULL COURT BREAKER
-// Complete JavaScript Game
+// PERFORMANCE OPTIMIZED EDITION
 // ============================================================
 
+// ------------------------------------------------------------
+// CANVAS AND HTML ELEMENTS
+// ------------------------------------------------------------
+
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", { alpha: false });
 
-// ------------------------------------------------------------
-// HTML ELEMENTS
-// ------------------------------------------------------------
+const $ = id => document.getElementById(id);
 
-const scoreDisplay = document.getElementById("score");
-const highScoreDisplay = document.getElementById("highScore");
-const levelDisplay = document.getElementById("level");
-const livesDisplay = document.getElementById("lives");
-const gameStatus = document.getElementById("gameStatus");
-const comboDisplay = document.getElementById("comboDisplay");
-const overlay = document.getElementById("overlay");
-const overlayTitle = document.getElementById("overlayTitle");
-const overlayMessage = document.getElementById("overlayMessage");
-const startButton = document.getElementById("startButton");
-const pauseButton = document.getElementById("pauseButton");
-const soundButton = document.getElementById("soundButton");
-const announcement = document.getElementById("announcement");
-const powerupStatus = document.getElementById("powerupStatus");
-
-// ------------------------------------------------------------
-// GAME SETTINGS
-// ------------------------------------------------------------
+const scoreDisplay = $("score");
+const highScoreDisplay = $("highScore");
+const levelDisplay = $("level");
+const livesDisplay = $("lives");
+const gameStatus = $("gameStatus");
+const comboDisplay = $("comboDisplay");
+const overlay = $("overlay");
+const overlayTitle = $("overlayTitle");
+const overlayMessage = $("overlayMessage");
+const startButton = $("startButton");
+const pauseButton = $("pauseButton");
+const soundButton = $("soundButton");
+const announcement = $("announcement");
+const powerupStatus = $("powerupStatus");
 
 const WIDTH = 1000;
 const HEIGHT = 650;
+
+// ------------------------------------------------------------
+// PERFORMANCE SETTINGS
+// ------------------------------------------------------------
+
+const MAX_PARTICLES = 220;
+const MAX_FLOATING_TEXTS = 35;
+const MAX_BALLS = 4;
+
+const PARTICLE_LIFETIME = 900;
+const POWER_DURATION = 15000;
+
+// Cache the court so it only needs to be drawn once.
+const courtCanvas = document.createElement("canvas");
+courtCanvas.width = WIDTH;
+courtCanvas.height = HEIGHT;
+
+const courtCtx = courtCanvas.getContext("2d");
+
+// ------------------------------------------------------------
+// GAME STATE
+// ------------------------------------------------------------
 
 let score = 0;
 let highScore = Number(localStorage.getItem("fullCourtHighScore")) || 0;
@@ -44,11 +64,14 @@ let paused = false;
 let gameOver = false;
 let soundEnabled = true;
 
-let animationId;
+let animationId = null;
 let lastTime = 0;
-let announcementTimer;
+let lastUIUpdate = 0;
+let announcementTimer = null;
 
-highScoreDisplay.textContent = highScore.toString().padStart(6, "0");
+let audioContext = null;
+
+highScoreDisplay.textContent = String(highScore).padStart(6, "0");
 
 // ------------------------------------------------------------
 // GAME OBJECTS
@@ -81,7 +104,7 @@ let hotHandHits = 0;
 let multiballHits = 0;
 let consecutiveHits = 0;
 
-let activePowers = {
+const activePowers = {
     hotHand: 0,
     bigMan: 0,
     doublePoints: 0
@@ -91,14 +114,14 @@ let activePowers = {
 // AUDIO
 // ------------------------------------------------------------
 
-let audioContext;
-
 function playSound(frequency = 400, duration = 0.08, type = "sine") {
     if (!soundEnabled) return;
 
     try {
         if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            audioContext = new (
+                window.AudioContext || window.webkitAudioContext
+            )();
         }
 
         if (audioContext.state === "suspended") {
@@ -111,7 +134,7 @@ function playSound(frequency = 400, duration = 0.08, type = "sine") {
         oscillator.type = type;
         oscillator.frequency.value = frequency;
 
-        gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+        gain.gain.setValueAtTime(0.07, audioContext.currentTime);
         gain.gain.exponentialRampToValueAtTime(
             0.001,
             audioContext.currentTime + duration
@@ -122,8 +145,9 @@ function playSound(frequency = 400, duration = 0.08, type = "sine") {
 
         oscillator.start();
         oscillator.stop(audioContext.currentTime + duration);
+
     } catch (error) {
-        // The game can still run if audio is unavailable.
+        // Audio is optional.
     }
 }
 
@@ -147,7 +171,7 @@ function announce(message) {
 }
 
 // ------------------------------------------------------------
-// BASKETBALL CREATION
+// BALL CREATION
 // ------------------------------------------------------------
 
 function createBall(x, y, vx, vy) {
@@ -159,7 +183,7 @@ function createBall(x, y, vx, vy) {
         radius: 17,
         rotation: 0,
         trail: [],
-        fire: false
+        lost: false
     };
 }
 
@@ -175,11 +199,10 @@ function resetBall() {
 }
 
 // ------------------------------------------------------------
-// REALISTIC BASKETBALL DRAWING
+// BASKETBALL DRAWING
 // ------------------------------------------------------------
 
 function drawBasketball(ball) {
-
     const r = ball.radius;
 
     ctx.save();
@@ -188,68 +211,62 @@ function drawBasketball(ball) {
     ctx.rotate(ball.rotation);
 
     // Ball shadow
-    ctx.save();
-    ctx.globalAlpha = 0.28;
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+
     ctx.beginPath();
     ctx.ellipse(5, r + 5, r * 1.05, r * 0.35, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
 
-    // Outer ball shape
-    const ballGradient = ctx.createRadialGradient(
-        -r * 0.4,
-        -r * 0.5,
-        1,
-        0,
-        0,
-        r * 1.3
+    // Orange leather surface
+    const gradient = ctx.createRadialGradient(
+        -r * 0.4, -r * 0.5, 1,
+        0, 0, r * 1.3
     );
 
-    ballGradient.addColorStop(0, "#ffbd69");
-    ballGradient.addColorStop(0.35, "#f58a32");
-    ballGradient.addColorStop(0.75, "#d65c19");
-    ballGradient.addColorStop(1, "#81300d");
+    gradient.addColorStop(0, "#ffbd69");
+    gradient.addColorStop(0.35, "#f58a32");
+    gradient.addColorStop(0.75, "#d65c19");
+    gradient.addColorStop(1, "#81300d");
 
-    ctx.fillStyle = ballGradient;
+    ctx.fillStyle = gradient;
+
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // Clip everything inside the ball
+    // Clip the seams and texture inside the ball.
     ctx.save();
 
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.96, 0, Math.PI * 2);
     ctx.clip();
 
-    // Subtle leather pebble texture
-    for (let i = 0; i < 95; i++) {
+    // Lightweight leather texture.
+    for (let i = 0; i < 35; i++) {
         const angle = i * 2.399;
-        const distance = Math.sqrt(i / 95) * r * 0.91;
-
-        const px = Math.cos(angle) * distance;
-        const py = Math.sin(angle) * distance;
+        const distance = Math.sqrt(i / 35) * r * 0.9;
 
         ctx.fillStyle = i % 2 === 0
-            ? "rgba(255,210,145,0.16)"
-            : "rgba(80,30,8,0.13)";
+            ? "rgba(255,210,145,0.14)"
+            : "rgba(80,30,8,0.12)";
 
         ctx.beginPath();
-        ctx.arc(px, py, 0.45, 0, Math.PI * 2);
+        ctx.arc(
+            Math.cos(angle) * distance,
+            Math.sin(angle) * distance,
+            0.55,
+            0,
+            Math.PI * 2
+        );
         ctx.fill();
     }
 
-    // Traditional basketball seams.
-    // These are two perpendicular curved channels,
-    // NOT diagonal lines forming an X.
-
+    // Traditional basketball channels.
     ctx.strokeStyle = "#392015";
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
-    ctx.lineJoin = "round";
 
-    // Vertical meridian seam
+    // Vertical curved seam.
     ctx.beginPath();
     ctx.moveTo(0, -r);
     ctx.bezierCurveTo(
@@ -268,7 +285,7 @@ function drawBasketball(ball) {
     );
     ctx.stroke();
 
-    // Horizontal curved channel
+    // Horizontal curved seam.
     ctx.beginPath();
     ctx.moveTo(-r, 0);
     ctx.bezierCurveTo(
@@ -287,29 +304,12 @@ function drawBasketball(ball) {
     );
     ctx.stroke();
 
-    // Slight highlights along the channels
-    ctx.strokeStyle = "rgba(255,190,110,0.2)";
-    ctx.lineWidth = 0.7;
-
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.88, -r * 0.08);
-    ctx.bezierCurveTo(
-        -r * 0.3, -r * 0.52,
-        r * 0.3, -r * 0.52,
-        r * 0.88, -r * 0.08
-    );
-    ctx.stroke();
-
     ctx.restore();
 
-    // Spherical lighting
+    // Spherical lighting.
     const shine = ctx.createRadialGradient(
-        -r * 0.45,
-        -r * 0.5,
-        0,
-        -r * 0.2,
-        -r * 0.2,
-        r * 1.2
+        -r * 0.45, -r * 0.5, 0,
+        -r * 0.2, -r * 0.2, r * 1.2
     );
 
     shine.addColorStop(0, "rgba(255,255,255,0.28)");
@@ -317,19 +317,15 @@ function drawBasketball(ball) {
     shine.addColorStop(1, "rgba(0,0,0,0.24)");
 
     ctx.fillStyle = shine;
+
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // Small leather highlight
-    ctx.fillStyle = "rgba(255,255,255,0.22)";
-    ctx.beginPath();
-    ctx.ellipse(-r * 0.35, -r * 0.55, r * 0.22, r * 0.09, -0.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Outer edge
+    // Outer edge.
     ctx.strokeStyle = "rgba(70,28,9,0.65)";
     ctx.lineWidth = 1.5;
+
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.stroke();
@@ -338,21 +334,61 @@ function drawBasketball(ball) {
 }
 
 // ------------------------------------------------------------
-// COURT DESIGN
+// BASKETBALL COURT
+// This is cached instead of redrawn every frame.
 // ------------------------------------------------------------
 
-function drawCourt() {
+function drawHoop(c, x, y) {
+    c.save();
 
-    // Main wooden floor
-    const wood = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+    // Backboard
+    c.fillStyle = "rgba(245,245,245,0.85)";
+    c.fillRect(x - 15, y - 35, 30, 65);
+
+    c.strokeStyle = "#ffffff";
+    c.lineWidth = 3;
+    c.strokeRect(x - 15, y - 35, 30, 65);
+
+    // Rim
+    c.strokeStyle = "#ff6030";
+    c.lineWidth = 7;
+
+    c.beginPath();
+    c.ellipse(x, y + 30, 25, 8, 0, 0, Math.PI * 2);
+    c.stroke();
+
+    // Net
+    c.strokeStyle = "rgba(255,255,255,0.65)";
+    c.lineWidth = 1.5;
+
+    for (let i = -2; i <= 2; i++) {
+        c.beginPath();
+        c.moveTo(x + i * 10, y + 35);
+        c.lineTo(x + i * 6, y + 72);
+        c.stroke();
+    }
+
+    c.beginPath();
+    c.moveTo(x - 20, y + 48);
+    c.lineTo(x + 20, y + 48);
+    c.stroke();
+
+    c.restore();
+}
+
+function drawCourt(c = ctx) {
+
+    // Main wooden floor.
+    const wood = c.createLinearGradient(0, 0, 0, HEIGHT);
+
     wood.addColorStop(0, "#c88b52");
     wood.addColorStop(0.5, "#b77740");
     wood.addColorStop(1, "#92552e");
 
-    ctx.fillStyle = wood;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    c.fillStyle = wood;
+    c.fillRect(0, 0, WIDTH, HEIGHT);
 
-    // Alternating individual wood planks
+    // Wooden planks.
     const plankHeight = 48;
 
     for (let row = 0; row < 14; row++) {
@@ -362,147 +398,110 @@ function drawCourt() {
         for (let col = -1; col < 7; col++) {
             const x = col * 170 + offset;
 
-            ctx.fillStyle = (row + col) % 2 === 0
+            c.fillStyle = (row + col) % 2 === 0
                 ? "rgba(255,205,145,0.10)"
                 : "rgba(75,36,14,0.09)";
 
-            ctx.fillRect(x, y, 170, plankHeight);
+            c.fillRect(x, y, 170, plankHeight);
 
-            ctx.strokeStyle = "rgba(83,43,20,0.18)";
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, 170, plankHeight);
+            c.strokeStyle = "rgba(83,43,20,0.18)";
+            c.lineWidth = 2;
+            c.strokeRect(x, y, 170, plankHeight);
 
-            // Wood grain
-            ctx.strokeStyle = "rgba(255,224,180,0.09)";
-            ctx.lineWidth = 1;
+            // Wood grain.
+            c.strokeStyle = "rgba(255,224,180,0.09)";
+            c.lineWidth = 1;
 
             for (let grain = 0; grain < 3; grain++) {
-                ctx.beginPath();
-                ctx.moveTo(x + 15, y + 10 + grain * 13);
-                ctx.bezierCurveTo(
+                c.beginPath();
+                c.moveTo(x + 15, y + 10 + grain * 13);
+
+                c.bezierCurveTo(
                     x + 65, y + 7 + grain * 13,
                     x + 110, y + 15 + grain * 13,
                     x + 155, y + 10 + grain * 13
                 );
-                ctx.stroke();
+
+                c.stroke();
             }
         }
     }
 
-    // Court lighting
-    const lighting = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+    // Court lighting.
+    const lighting = c.createLinearGradient(0, 0, 0, HEIGHT);
+
     lighting.addColorStop(0, "rgba(255,255,255,0.12)");
     lighting.addColorStop(1, "rgba(0,0,0,0.16)");
 
-    ctx.fillStyle = lighting;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    c.fillStyle = lighting;
+    c.fillRect(0, 0, WIDTH, HEIGHT);
 
-    // Court markings
-    ctx.save();
+    // Court markings.
+    c.save();
 
-    ctx.strokeStyle = "rgba(255,239,205,0.75)";
-    ctx.lineWidth = 4;
+    c.strokeStyle = "rgba(255,239,205,0.75)";
+    c.lineWidth = 4;
 
-    // Outer boundary
-    ctx.strokeRect(22, 12, WIDTH - 44, HEIGHT - 24);
+    c.strokeRect(22, 12, WIDTH - 44, HEIGHT - 24);
 
-    // Half court line
-    ctx.beginPath();
-    ctx.moveTo(WIDTH / 2, 12);
-    ctx.lineTo(WIDTH / 2, HEIGHT - 12);
-    ctx.stroke();
+    c.beginPath();
+    c.moveTo(WIDTH / 2, 12);
+    c.lineTo(WIDTH / 2, HEIGHT - 12);
+    c.stroke();
 
-    // Center circle
-    ctx.beginPath();
-    ctx.arc(WIDTH / 2, HEIGHT / 2, 84, 0, Math.PI * 2);
-    ctx.stroke();
+    c.beginPath();
+    c.arc(WIDTH / 2, HEIGHT / 2, 84, 0, Math.PI * 2);
+    c.stroke();
 
-    // Free throw areas
-    ctx.strokeRect(330, 12, 340, 180);
-    ctx.strokeRect(330, HEIGHT - 192, 340, 180);
+    c.strokeRect(330, 12, 340, 180);
+    c.strokeRect(330, HEIGHT - 192, 340, 180);
 
-    // Free throw circles
-    ctx.beginPath();
-    ctx.arc(WIDTH / 2, 192, 65, 0, Math.PI);
-    ctx.stroke();
+    c.beginPath();
+    c.arc(WIDTH / 2, 192, 65, 0, Math.PI);
+    c.stroke();
 
-    ctx.beginPath();
-    ctx.arc(WIDTH / 2, HEIGHT - 192, 65, Math.PI, 0);
-    ctx.stroke();
+    c.beginPath();
+    c.arc(WIDTH / 2, HEIGHT - 192, 65, Math.PI, 0);
+    c.stroke();
 
-    // Three-point arcs
-    ctx.beginPath();
-    ctx.arc(WIDTH / 2, -5, 300, 0.18, Math.PI - 0.18);
-    ctx.stroke();
+    c.beginPath();
+    c.arc(WIDTH / 2, -5, 300, 0.18, Math.PI - 0.18);
+    c.stroke();
 
-    ctx.beginPath();
-    ctx.arc(WIDTH / 2, HEIGHT + 5, 300, Math.PI + 0.18, -0.18);
-    ctx.stroke();
+    c.beginPath();
+    c.arc(
+        WIDTH / 2,
+        HEIGHT + 5,
+        300,
+        Math.PI + 0.18,
+        -0.18
+    );
+    c.stroke();
 
-    // Center spot
-    ctx.fillStyle = "rgba(255,244,220,0.85)";
-    ctx.beginPath();
-    ctx.arc(WIDTH / 2, HEIGHT / 2, 5, 0, Math.PI * 2);
-    ctx.fill();
+    c.fillStyle = "rgba(255,244,220,0.85)";
+    c.beginPath();
+    c.arc(WIDTH / 2, HEIGHT / 2, 5, 0, Math.PI * 2);
+    c.fill();
 
-    // Arena lettering
-    ctx.font = "bold 55px Arial";
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(255,255,255,0.075)";
-    ctx.fillText("FULL COURT", WIDTH / 2, HEIGHT / 2 + 20);
+    c.font = "bold 55px Arial";
+    c.textAlign = "center";
+    c.fillStyle = "rgba(255,255,255,0.075)";
+    c.fillText("FULL COURT", WIDTH / 2, HEIGHT / 2 + 20);
 
-    ctx.restore();
+    c.restore();
 
-    // Arena hoops
-    drawHoop(50, 95, true);
-    drawHoop(WIDTH - 50, 95, false);
+    drawHoop(c, 50, 95);
+    drawHoop(c, WIDTH - 50, 95);
 }
 
-function drawHoop(x, y, left) {
-
-    ctx.save();
-
-    // Backboard
-    ctx.fillStyle = "rgba(245,245,245,0.75)";
-    ctx.fillRect(x - 15, y - 35, 30, 65);
-
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(x - 15, y - 35, 30, 65);
-
-    // Rim
-    ctx.strokeStyle = "#ff6030";
-    ctx.lineWidth = 7;
-
-    ctx.beginPath();
-    ctx.ellipse(x, y + 30, 25, 8, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Net
-    ctx.strokeStyle = "rgba(255,255,255,0.65)";
-    ctx.lineWidth = 1.5;
-
-    for (let i = -2; i <= 2; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x + i * 10, y + 35);
-        ctx.lineTo(x + i * 6, y + 72);
-        ctx.stroke();
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(x - 20, y + 48);
-    ctx.lineTo(x + 20, y + 48);
-    ctx.stroke();
-
-    ctx.restore();
-}
+// Build the static court one time.
+drawCourt(courtCtx);
 
 // ------------------------------------------------------------
-// BRICK CREATION
+// BRICKS
 // ------------------------------------------------------------
 
 function createBricks() {
-
     bricks = [];
 
     const rows = Math.min(4 + level, 7);
@@ -525,21 +524,19 @@ function createBricks() {
     ];
 
     for (let row = 0; row < rows; row++) {
-
         for (let col = 0; col < columns; col++) {
 
-            // Random gaps make each court feel different
             if (Math.random() < 0.07) continue;
 
             const golden = Math.random() < 0.055;
+            const hits = golden ? 1 : (row >= 3 ? 2 : 1);
 
             bricks.push({
                 x: startX + col * (brickWidth + gap),
                 y: 45 + row * 43,
                 width: brickWidth,
                 height: brickHeight,
-                hits: golden ? 1 : (row >= 3 ? 2 : 1),
-                maxHits: golden ? 1 : (row >= 3 ? 2 : 1),
+                hits,
                 color: golden ? "#f5c84c" : colors[row % colors.length],
                 golden,
                 alive: true
@@ -548,19 +545,12 @@ function createBricks() {
     }
 }
 
-// ------------------------------------------------------------
-// BRICK DRAWING
-// ------------------------------------------------------------
-
 function drawBricks() {
-
-    bricks.forEach(brick => {
-
-        if (!brick.alive) return;
+    for (const brick of bricks) {
+        if (!brick.alive) continue;
 
         ctx.save();
 
-        // Brick shadow
         ctx.fillStyle = "rgba(0,0,0,0.3)";
         ctx.fillRect(
             brick.x + 4,
@@ -580,6 +570,7 @@ function drawBricks() {
         gradient.addColorStop(1, "#713b27");
 
         ctx.fillStyle = gradient;
+
         ctx.beginPath();
         ctx.roundRect(
             brick.x,
@@ -590,7 +581,6 @@ function drawBricks() {
         );
         ctx.fill();
 
-        // Top highlight
         ctx.strokeStyle = "rgba(255,255,255,0.5)";
         ctx.lineWidth = 2;
 
@@ -599,7 +589,6 @@ function drawBricks() {
         ctx.lineTo(brick.x + brick.width - 8, brick.y + 5);
         ctx.stroke();
 
-        // Basketball or star design
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.font = "23px Arial";
@@ -613,6 +602,7 @@ function drawBricks() {
         if (brick.hits > 1) {
             ctx.fillStyle = "white";
             ctx.font = "bold 13px Arial";
+
             ctx.fillText(
                 brick.hits,
                 brick.x + brick.width - 10,
@@ -621,19 +611,18 @@ function drawBricks() {
         }
 
         ctx.restore();
-    });
+    }
 }
 
 // ------------------------------------------------------------
-// PADDLE DRAWING
+// PADDLE
 // ------------------------------------------------------------
 
 function drawPaddle() {
-
     ctx.save();
 
     ctx.shadowColor = "#ff762f";
-    ctx.shadowBlur = 18;
+    ctx.shadowBlur = 12;
 
     const gradient = ctx.createLinearGradient(
         paddle.x,
@@ -672,13 +661,15 @@ function drawPaddle() {
 }
 
 // ------------------------------------------------------------
-// PARTICLE EFFECTS
+// PARTICLES
 // ------------------------------------------------------------
 
 function createParticles(x, y, color, amount = 12) {
 
-    for (let i = 0; i < amount; i++) {
+    const available = MAX_PARTICLES - particles.length;
+    const count = Math.min(amount, available);
 
+    for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = Math.random() * 4 + 1;
 
@@ -694,29 +685,28 @@ function createParticles(x, y, color, amount = 12) {
     }
 }
 
-function updateParticles() {
+function updateParticles(delta) {
+    const step = delta / 16.67;
 
-    particles.forEach(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= 0.025;
-        p.vy += 0.04;
-    });
+    for (const p of particles) {
+        p.x += p.vx * step;
+        p.y += p.vy * step;
+        p.life -= delta / PARTICLE_LIFETIME;
+        p.vy += 0.04 * step;
+    }
 
     particles = particles.filter(p => p.life > 0);
 }
 
 function drawParticles() {
-
-    particles.forEach(p => {
-
+    for (const p of particles) {
         ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
-    });
+    }
 
     ctx.globalAlpha = 1;
 }
@@ -727,6 +717,10 @@ function drawParticles() {
 
 function addFloatingText(x, y, text, color = "#ffffff") {
 
+    if (floatingTexts.length >= MAX_FLOATING_TEXTS) {
+        floatingTexts.shift();
+    }
+
     floatingTexts.push({
         x,
         y,
@@ -736,32 +730,31 @@ function addFloatingText(x, y, text, color = "#ffffff") {
     });
 }
 
-function updateFloatingTexts() {
+function updateFloatingTexts(delta) {
+    const step = delta / 16.67;
 
-    floatingTexts.forEach(t => {
-        t.y -= 1;
-        t.life -= 0.02;
-    });
+    for (const t of floatingTexts) {
+        t.y -= step;
+        t.life -= delta / 850;
+    }
 
     floatingTexts = floatingTexts.filter(t => t.life > 0);
 }
 
 function drawFloatingTexts() {
-
-    floatingTexts.forEach(t => {
-
+    for (const t of floatingTexts) {
         ctx.globalAlpha = t.life;
         ctx.fillStyle = t.color;
         ctx.font = "bold 20px Arial";
         ctx.textAlign = "center";
         ctx.fillText(t.text, t.x, t.y);
-    });
+    }
 
     ctx.globalAlpha = 1;
 }
 
 // ------------------------------------------------------------
-// SCORE SYSTEM
+// SCORE
 // ------------------------------------------------------------
 
 function updateScore(points) {
@@ -772,61 +765,68 @@ function updateScore(points) {
 
     if (score > highScore) {
         highScore = score;
-        localStorage.setItem("fullCourtHighScore", highScore);
+
+        try {
+            localStorage.setItem("fullCourtHighScore", highScore);
+        } catch (error) {
+            // Storage is optional.
+        }
+
+        highScoreDisplay.textContent =
+            String(highScore).padStart(6, "0");
     }
 
-    scoreDisplay.textContent = score.toString().padStart(6, "0");
-    highScoreDisplay.textContent = highScore.toString().padStart(6, "0");
+    scoreDisplay.textContent = String(score).padStart(6, "0");
 }
 
 // ------------------------------------------------------------
-// POWER-UP PROGRESS
+// POWER-UP DISPLAY
 // ------------------------------------------------------------
 
 function updatePowerupProgress() {
 
-    document.getElementById("fireProgress").style.width =
+    $("fireProgress").style.width =
         Math.min(hotHandHits / 3 * 100, 100) + "%";
 
-    document.getElementById("fireText").textContent =
+    $("fireText").textContent =
         `${Math.min(hotHandHits, 3)} / 3 ACCURATE HITS`;
 
-    document.getElementById("multiProgress").style.width =
+    $("multiProgress").style.width =
         Math.min(multiballHits / 5 * 100, 100) + "%";
 
-    document.getElementById("multiText").textContent =
+    $("multiText").textContent =
         `${Math.min(multiballHits, 5)} / 5 TARGETS`;
 
-    document.getElementById("doubleProgress").style.width =
+    $("doubleProgress").style.width =
         Math.min(consecutiveHits / 10 * 100, 100) + "%";
 
-    document.getElementById("doubleText").textContent =
+    $("doubleText").textContent =
         `${Math.min(consecutiveHits, 10)} / 10 TARGETS`;
 
-    document.getElementById("wideProgress").style.width =
+    $("wideProgress").style.width =
         activePowers.bigMan > 0 ? "100%" : "0%";
 
-    document.getElementById("wideText").textContent =
+    $("wideText").textContent =
         activePowers.bigMan > 0
             ? "BIG MAN ACTIVE!"
             : "FIND THE GOLDEN TARGET";
 
-    document.getElementById("fireCard").classList.toggle(
+    $("fireCard").classList.toggle(
         "unlocked",
         activePowers.hotHand > 0
     );
 
-    document.getElementById("multiCard").classList.toggle(
+    $("multiCard").classList.toggle(
         "unlocked",
         balls.length > 1
     );
 
-    document.getElementById("wideCard").classList.toggle(
+    $("wideCard").classList.toggle(
         "unlocked",
         activePowers.bigMan > 0
     );
 
-    document.getElementById("doubleCard").classList.toggle(
+    $("doubleCard").classList.toggle(
         "unlocked",
         activePowers.doublePoints > 0
     );
@@ -849,6 +849,9 @@ function updatePowerupProgress() {
 
 function dropPowerup(x, y, type) {
 
+    // Prevent an excessive number of falling power-ups.
+    if (powerups.length >= 8) return;
+
     powerups.push({
         x,
         y,
@@ -860,50 +863,49 @@ function dropPowerup(x, y, type) {
 
 function drawPowerups() {
 
-    powerups.forEach(p => {
+    const icons = {
+        fire: "🔥",
+        multi: "🏀",
+        wide: "💪",
+        double: "💎"
+    };
 
+    for (const p of powerups) {
         ctx.save();
 
         ctx.shadowColor = "#ffffff";
-        ctx.shadowBlur = 15;
-
-        const icons = {
-            fire: "🔥",
-            multi: "🏀",
-            wide: "💪",
-            double: "💎"
-        };
+        ctx.shadowBlur = 10;
 
         ctx.font = "27px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+
         ctx.fillText(icons[p.type], p.x, p.y);
 
         ctx.restore();
-    });
+    }
 }
 
-function updatePowerups() {
+function updatePowerups(delta) {
+    const step = delta / 16.67;
 
-    powerups.forEach(p => {
+    for (const p of powerups) {
+        p.y += p.speed * step;
 
-        p.y += p.speed;
-
-        // Paddle catches power-up
         if (
             p.y + p.size > paddle.y &&
             p.y - p.size < paddle.y + paddle.height &&
             p.x > paddle.x &&
             p.x < paddle.x + paddle.width
         ) {
-
             activatePowerup(p.type);
-
             p.collected = true;
         }
-    });
+    }
 
-    powerups = powerups.filter(p => !p.collected && p.y < HEIGHT + 30);
+    powerups = powerups.filter(
+        p => !p.collected && p.y < HEIGHT + 30
+    );
 }
 
 function activatePowerup(type) {
@@ -911,7 +913,7 @@ function activatePowerup(type) {
     playSound(850, 0.2, "sine");
 
     if (type === "fire") {
-        activePowers.hotHand = 900;
+        activePowers.hotHand = POWER_DURATION;
         announce("🔥 HOT HAND!");
     }
 
@@ -920,7 +922,7 @@ function activatePowerup(type) {
         const original = balls[0];
 
         if (original) {
-            balls.push(
+            const newBalls = [
                 createBall(
                     original.x,
                     original.y,
@@ -933,20 +935,27 @@ function activatePowerup(type) {
                     original.vx * 0.7,
                     -original.vy
                 )
-            );
+            ];
+
+            while (
+                newBalls.length &&
+                balls.length < MAX_BALLS
+            ) {
+                balls.push(newBalls.shift());
+            }
         }
 
         announce("🏀 MULTIBALL!");
     }
 
     if (type === "wide") {
-        activePowers.bigMan = 900;
+        activePowers.bigMan = POWER_DURATION;
         paddle.width = 260;
         announce("💪 BIG MAN!");
     }
 
     if (type === "double") {
-        activePowers.doublePoints = 900;
+        activePowers.doublePoints = POWER_DURATION;
         announce("💎 DOUBLE POINTS!");
     }
 
@@ -967,19 +976,22 @@ function hitBrick(ball, brick) {
         brick.x + brick.width / 2,
         brick.y + brick.height / 2,
         brick.color,
-        15
+        10
     );
 
     combo = Math.min(combo + 1, 10);
+
     consecutiveHits++;
     multiballHits++;
 
-    updateScore(brick.golden ? 250 : 100);
+    const points = brick.golden ? 250 : 100;
+
+    updateScore(points);
 
     addFloatingText(
         brick.x + brick.width / 2,
         brick.y,
-        "+" + (brick.golden ? 250 : 100),
+        "+" + points,
         "#fff0a0"
     );
 
@@ -989,7 +1001,6 @@ function hitBrick(ball, brick) {
 
         playSound(550 + Math.random() * 200, 0.08, "triangle");
 
-        // Golden target unlocks Big Man
         if (brick.golden) {
             dropPowerup(
                 brick.x + brick.width / 2,
@@ -998,19 +1009,11 @@ function hitBrick(ball, brick) {
             );
         }
 
-        // Three accurate paddle hits unlock Hot Hand
-        if (hotHandHits >= 3 && activePowers.hotHand <= 0) {
-            dropPowerup(ball.x, ball.y, "fire");
-            hotHandHits = 0;
-        }
-
-        // Five destroyed targets unlock Multiball
         if (multiballHits >= 5) {
             dropPowerup(ball.x, ball.y, "multi");
             multiballHits = 0;
         }
 
-        // Ten consecutive targets unlock Double Points
         if (consecutiveHits >= 10) {
             dropPowerup(ball.x, ball.y, "double");
             consecutiveHits = 0;
@@ -1028,46 +1031,45 @@ function hitBrick(ball, brick) {
 // BALL PHYSICS
 // ------------------------------------------------------------
 
-function updateBalls() {
+function updateBalls(delta) {
 
-    balls.forEach(ball => {
+    const step = delta / 16.67;
 
-        // Motion trail
+    for (const ball of balls) {
+
+        // Keep a short trail.
         ball.trail.push({
             x: ball.x,
             y: ball.y
         });
 
-        if (ball.trail.length > 7) {
+        if (ball.trail.length > 6) {
             ball.trail.shift();
         }
 
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+        ball.x += ball.vx * step;
+        ball.y += ball.vy * step;
 
-        ball.rotation += ball.vx * 0.018;
+        ball.rotation += ball.vx * 0.018 * step;
 
-        // Side walls
+        // Side walls.
         if (ball.x - ball.radius < 0) {
             ball.x = ball.radius;
-            ball.vx *= -1;
-            playSound(250, 0.04);
+            ball.vx = Math.abs(ball.vx);
         }
 
         if (ball.x + ball.radius > WIDTH) {
             ball.x = WIDTH - ball.radius;
-            ball.vx *= -1;
-            playSound(250, 0.04);
+            ball.vx = -Math.abs(ball.vx);
         }
 
-        // Top wall
+        // Top wall.
         if (ball.y - ball.radius < 0) {
             ball.y = ball.radius;
-            ball.vy *= -1;
-            playSound(300, 0.04);
+            ball.vy = Math.abs(ball.vy);
         }
 
-        // Paddle collision
+        // Paddle collision.
         if (
             ball.vy > 0 &&
             ball.y + ball.radius >= paddle.y &&
@@ -1090,12 +1092,13 @@ function updateBalls() {
 
             ball.vy = Math.max(ball.vy, -10);
 
-            // Center paddle hits build Hot Hand progress
             if (Math.abs(hitPosition) < 0.25) {
-
                 hotHandHits++;
 
-                if (hotHandHits === 3 && activePowers.hotHand <= 0) {
+                if (
+                    hotHandHits >= 3 &&
+                    activePowers.hotHand <= 0
+                ) {
                     dropPowerup(ball.x, ball.y, "fire");
                     hotHandHits = 0;
                     announce("🔥 HOT HAND UNLOCKED!");
@@ -1103,11 +1106,10 @@ function updateBalls() {
             }
 
             playSound(180, 0.1, "triangle");
-
             updatePowerupProgress();
         }
 
-        // Brick collisions
+        // Brick collision.
         for (const brick of bricks) {
 
             if (!brick.alive) continue;
@@ -1118,20 +1120,19 @@ function updateBalls() {
                 ball.y + ball.radius > brick.y &&
                 ball.y - ball.radius < brick.y + brick.height
             ) {
-
                 hitBrick(ball, brick);
                 break;
             }
         }
 
-        // Ball falls out of court
         if (ball.y - ball.radius > HEIGHT) {
             ball.lost = true;
         }
-    });
+    }
 
     balls = balls.filter(ball => !ball.lost);
 
+    // All balls have fallen.
     if (balls.length === 0) {
 
         lives--;
@@ -1139,7 +1140,8 @@ function updateBalls() {
         combo = 1;
         consecutiveHits = 0;
 
-        livesDisplay.textContent = "🏀 ".repeat(Math.max(0, lives));
+        livesDisplay.textContent =
+            "🏀 ".repeat(Math.max(0, lives));
 
         updatePowerupProgress();
 
@@ -1153,56 +1155,60 @@ function updateBalls() {
 }
 
 // ------------------------------------------------------------
-// BALL TRAILS AND DRAWING
+// BALL DRAWING
 // ------------------------------------------------------------
 
 function drawBalls() {
 
-    balls.forEach(ball => {
+    for (const ball of balls) {
 
-        // Fading trail
-        ball.trail.forEach((point, index) => {
+        for (let i = 0; i < ball.trail.length; i++) {
+            const point = ball.trail[i];
 
-            ctx.globalAlpha = index / ball.trail.length * 0.18;
+            ctx.globalAlpha =
+                (i / ball.trail.length) * 0.15;
+
             ctx.fillStyle = "#ffb15b";
 
             ctx.beginPath();
             ctx.arc(
                 point.x,
                 point.y,
-                ball.radius * 0.65,
+                ball.radius * 0.6,
                 0,
                 Math.PI * 2
             );
             ctx.fill();
-        });
+        }
 
         ctx.globalAlpha = 1;
 
         if (activePowers.hotHand > 0) {
             ctx.save();
             ctx.shadowColor = "#ff5522";
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 15;
             drawBasketball(ball);
             ctx.restore();
         } else {
             drawBasketball(ball);
         }
-    });
+    }
 }
 
 // ------------------------------------------------------------
 // PADDLE MOVEMENT
 // ------------------------------------------------------------
 
-function updatePaddle() {
+function updatePaddle(delta) {
+
+    const step = delta / 16.67;
 
     if (keys.left) {
-        paddle.x -= paddle.speed;
+        paddle.x -= paddle.speed * step;
     }
 
     if (keys.right) {
-        paddle.x += paddle.speed;
+        paddle.x += paddle.speed * step;
     }
 
     paddle.x = Math.max(
@@ -1217,7 +1223,9 @@ function movePaddleTo(clientX) {
 
     const scale = WIDTH / rect.width;
 
-    paddle.x = (clientX - rect.left) * scale - paddle.width / 2;
+    paddle.x =
+        (clientX - rect.left) * scale -
+        paddle.width / 2;
 
     paddle.x = Math.max(
         0,
@@ -1247,12 +1255,14 @@ canvas.addEventListener("touchmove", event => {
 
 document.addEventListener("keydown", event => {
 
-    if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
+    const key = event.key.toLowerCase();
+
+    if (key === "arrowleft" || key === "a") {
         keys.left = true;
         event.preventDefault();
     }
 
-    if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
+    if (key === "arrowright" || key === "d") {
         keys.right = true;
         event.preventDefault();
     }
@@ -1261,7 +1271,7 @@ document.addEventListener("keydown", event => {
 
         event.preventDefault();
 
-        if (!running && !gameOver) {
+        if (!running && !paused && !gameOver) {
             startGame();
         } else if (running) {
             togglePause();
@@ -1271,11 +1281,13 @@ document.addEventListener("keydown", event => {
 
 document.addEventListener("keyup", event => {
 
-    if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
+    const key = event.key.toLowerCase();
+
+    if (key === "arrowleft" || key === "a") {
         keys.left = false;
     }
 
-    if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
+    if (key === "arrowright" || key === "d") {
         keys.right = false;
     }
 });
@@ -1288,12 +1300,12 @@ function nextLevel() {
 
     level++;
 
-    levelDisplay.textContent = level.toString().padStart(2, "0");
+    levelDisplay.textContent =
+        String(level).padStart(2, "0");
 
     announce("🏆 LEVEL " + level + "!");
 
     createBricks();
-
     resetBall();
 
     playSound(700, 0.3, "triangle");
@@ -1304,21 +1316,30 @@ function nextLevel() {
     activePowers.hotHand = 0;
     activePowers.doublePoints = 0;
 
+    powerups = [];
+
     updatePowerupProgress();
 }
 
 // ------------------------------------------------------------
 // POWER-UP TIMERS
+// Timers now use milliseconds rather than frame counts.
 // ------------------------------------------------------------
 
-function updatePowerTimers() {
+function updatePowerTimers(delta) {
 
-    Object.keys(activePowers).forEach(power => {
+    let changed = false;
+
+    for (const power of Object.keys(activePowers)) {
 
         if (activePowers[power] > 0) {
-            activePowers[power]--;
 
-            if (activePowers[power] === 0) {
+            activePowers[power] -= delta;
+
+            if (activePowers[power] <= 0) {
+
+                activePowers[power] = 0;
+                changed = true;
 
                 if (power === "bigMan") {
                     paddle.width = 180;
@@ -1327,20 +1348,20 @@ function updatePowerTimers() {
                 announce("POWER-UP EXPIRED");
             }
         }
-    });
+    }
 
-    updatePowerupProgress();
+    return changed;
 }
 
 // ------------------------------------------------------------
-// MAIN DRAWING FUNCTION
+// GAME DRAWING
 // ------------------------------------------------------------
 
 function drawGame() {
 
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    // Reuse the already-created court image.
+    ctx.drawImage(courtCanvas, 0, 0);
 
-    drawCourt();
     drawBricks();
     drawPaddle();
     drawPowerups();
@@ -1353,23 +1374,28 @@ function drawGame() {
 // GAME UPDATE
 // ------------------------------------------------------------
 
-function updateGame() {
+function updateGame(delta) {
 
-    if (!running || paused) return;
+    updatePaddle(delta);
+    updateBalls(delta);
+    updatePowerups(delta);
+    updateParticles(delta);
+    updateFloatingTexts(delta);
 
-    updatePaddle();
-    updateBalls();
-    updatePowerups();
-    updateParticles();
-    updateFloatingTexts();
-    updatePowerTimers();
+    const timerChanged = updatePowerTimers(delta);
 
-    // Advance when all targets are destroyed
-    if (bricks.every(brick => !brick.alive)) {
+    // Only check for a new level when necessary.
+    if (bricks.length && bricks.every(brick => !brick.alive)) {
         nextLevel();
     }
 
-    updatePowerupProgress();
+    // Update the HTML less frequently.
+    const now = performance.now();
+
+    if (timerChanged || now - lastUIUpdate > 200) {
+        updatePowerupProgress();
+        lastUIUpdate = now;
+    }
 }
 
 // ------------------------------------------------------------
@@ -1378,29 +1404,28 @@ function updateGame() {
 
 function gameLoop(timestamp) {
 
-    const delta = Math.min((timestamp - lastTime) / 16.67 || 1, 2);
-    lastTime = timestamp;
-
-    if (running && !paused) {
-
-        // Scale movement to maintain consistent speed
-        updatePaddle();
-
-        // Ball and other game physics
-        updateBalls();
-        updatePowerups();
-        updateParticles();
-        updateFloatingTexts();
-        updatePowerTimers();
-
-        if (bricks.every(brick => !brick.alive)) {
-            nextLevel();
-        }
+    if (!running || paused) {
+        animationId = null;
+        return;
     }
 
+    // Limit unusually large frame jumps.
+    const delta = Math.min(
+        Math.max(timestamp - lastTime, 0),
+        32
+    );
+
+    lastTime = timestamp;
+
+    updateGame(delta);
     drawGame();
 
-    animationId = requestAnimationFrame(gameLoop);
+    // Only schedule another frame during active gameplay.
+    if (running && !paused) {
+        animationId = requestAnimationFrame(gameLoop);
+    } else {
+        animationId = null;
+    }
 }
 
 // ------------------------------------------------------------
@@ -1409,22 +1434,22 @@ function gameLoop(timestamp) {
 
 function startGame() {
 
-    if (running && !paused) return;
+    if (running) return;
 
     if (gameOver) {
+
         score = 0;
         level = 1;
         lives = 3;
         combo = 1;
+
         hotHandHits = 0;
         multiballHits = 0;
         consecutiveHits = 0;
 
-        activePowers = {
-            hotHand: 0,
-            bigMan: 0,
-            doublePoints: 0
-        };
+        activePowers.hotHand = 0;
+        activePowers.bigMan = 0;
+        activePowers.doublePoints = 0;
 
         particles = [];
         powerups = [];
@@ -1442,19 +1467,28 @@ function startGame() {
     running = true;
     paused = false;
 
+    lastTime = performance.now();
+
     overlay.classList.add("hidden");
 
     gameStatus.textContent = "LIVE GAME";
 
-    scoreDisplay.textContent = score.toString().padStart(6, "0");
-    levelDisplay.textContent = level.toString().padStart(2, "0");
+    scoreDisplay.textContent =
+        String(score).padStart(6, "0");
+
+    levelDisplay.textContent =
+        String(level).padStart(2, "0");
+
     livesDisplay.textContent = "🏀 🏀 🏀";
 
     pauseButton.textContent = "Ⅱ PAUSE";
 
+    startButton.textContent = "▶ START GAME";
+
     announce("🏀 TIP-OFF!");
 
-    if (!animationId) {
+    // Never create a second animation loop.
+    if (animationId === null) {
         animationId = requestAnimationFrame(gameLoop);
     }
 }
@@ -1465,26 +1499,47 @@ function startGame() {
 
 function togglePause() {
 
-    if (!running || gameOver) return;
+    if (gameOver) return;
 
-    paused = !paused;
+    if (running) {
 
-    if (paused) {
+        paused = true;
+        running = false;
+
+        if (animationId !== null) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
 
         gameStatus.textContent = "GAME PAUSED";
         pauseButton.textContent = "▶ RESUME";
 
         overlay.classList.remove("hidden");
+
         overlayTitle.textContent = "TIMEOUT!";
-        overlayMessage.textContent = "Take a breather. The court will be waiting.";
+
+        overlayMessage.textContent =
+            "Take a breather. The court will be waiting.";
+
         startButton.textContent = "▶ RESUME GAME";
 
-    } else {
+        drawGame();
+
+    } else if (paused) {
+
+        paused = false;
+        running = true;
+
+        lastTime = performance.now();
+
+        overlay.classList.add("hidden");
 
         gameStatus.textContent = "LIVE GAME";
         pauseButton.textContent = "Ⅱ PAUSE";
 
-        overlay.classList.add("hidden");
+        if (animationId === null) {
+            animationId = requestAnimationFrame(gameLoop);
+        }
     }
 }
 
@@ -1498,11 +1553,17 @@ function endGame() {
     paused = false;
     gameOver = true;
 
+    if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+
     gameStatus.textContent = "GAME OVER";
 
     overlay.classList.remove("hidden");
 
     overlayTitle.textContent = "BUZZER BEATER... NOT!";
+
     overlayMessage.textContent =
         "Final Score: " + score +
         " | You reached Level " + level +
@@ -1510,9 +1571,13 @@ function endGame() {
 
     startButton.textContent = "▶ PLAY AGAIN";
 
+    pauseButton.textContent = "Ⅱ PAUSE";
+
     announce("GAME OVER!");
 
     playSound(120, 0.6, "sawtooth");
+
+    drawGame();
 }
 
 // ------------------------------------------------------------
@@ -1553,7 +1618,10 @@ function initializeGame() {
     resetBall();
 
     scoreDisplay.textContent = "000000";
-    highScoreDisplay.textContent = highScore.toString().padStart(6, "0");
+
+    highScoreDisplay.textContent =
+        String(highScore).padStart(6, "0");
+
     levelDisplay.textContent = "01";
     livesDisplay.textContent = "🏀 🏀 🏀";
 
@@ -1561,9 +1629,10 @@ function initializeGame() {
 
     updatePowerupProgress();
 
+    // Draw the opening screen once.
     drawGame();
 
-    animationId = requestAnimationFrame(gameLoop);
+    // No animation loop runs until the player starts.
 }
 
 initializeGame();
