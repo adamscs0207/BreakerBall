@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,7 +25,7 @@
         <div>
           <p class="kicker">THE CROWD IS READY. THE COURT IS YOURS.</p>
           <h1>MAKE SOME <em>NOISE.</em></h1>
-          <p class="hero-copy">Break the backboard targets. Catch fire. Take home the championship.</p>
+          <p class="hero-copy">Break the targets. Catch fire. Take home the championship.</p>
         </div>
         <div class="hero-stats">
           <div><span>CAREER HIGH</span><strong id="highScore">000000</strong></div>
@@ -51,6 +52,7 @@
 
         <div class="canvas-wrap">
           <canvas id="gameCanvas" width="1000" height="650" aria-label="Basketball brick breaker game"></canvas>
+
           <div class="game-overlay" id="overlay">
             <div class="overlay-panel">
               <div class="overlay-ball">🏀</div>
@@ -72,10 +74,12 @@
                   <span class="mode-icon">🏆</span><b>FINALS</b><small>Boss rounds</small>
                 </button>
               </div>
+
               <button id="startButton" class="tipoff-button" type="button"><span>▶</span> TIP OFF</button>
               <div class="overlay-foot">MOUSE / TOUCH TO MOVE <b>•</b> ARROW KEYS OR A / D <b>•</b> SPACE TO PAUSE</div>
             </div>
           </div>
+
           <div id="announcement" class="announcement" aria-live="polite"></div>
         </div>
 
@@ -91,18 +95,26 @@
             <div><p class="kicker">CHANGE THE MOMENTUM</p><h2>THE <em>HIGHLIGHT REEL</em></h2></div>
             <span class="section-stamp">SPECIAL ABILITIES</span>
           </div>
+
           <div class="powerup-grid">
             <article class="powerup-card fire-card" id="fireCard">
-              <div class="power-icon">🔥</div><div><h3>HOT HAND</h3><p>3 clean center-paddle returns.</p><div class="progress-track"><i id="fireProgress"></i></div><small id="fireText">0 / 3 ACCURATE HITS</small></div>
+              <div class="power-icon">🔥</div>
+              <div><h3>HOT HAND</h3><p>3 clean center-paddle returns.</p><div class="progress-track"><i id="fireProgress"></i></div><small id="fireText">0 / 3 ACCURATE HITS</small></div>
             </article>
+
             <article class="powerup-card multi-card" id="multiCard">
-              <div class="power-icon">🏀</div><div><h3>FAST BREAK</h3><p>Break 5 targets in one run.</p><div class="progress-track"><i id="multiProgress"></i></div><small id="multiText">0 / 5 TARGETS</small></div>
+              <div class="power-icon">🏀</div>
+              <div><h3>FAST BREAK</h3><p>Break 5 targets in one run.</p><div class="progress-track"><i id="multiProgress"></i></div><small id="multiText">0 / 5 TARGETS</small></div>
             </article>
+
             <article class="powerup-card wide-card" id="wideCard">
-              <div class="power-icon">💪</div><div><h3>BIG MAN</h3><p>Find the gold championship target.</p><div class="progress-track"><i id="wideProgress"></i></div><small id="wideText">FIND THE GOLD TARGET</small></div>
+              <div class="power-icon">💪</div>
+              <div><h3>BIG MAN</h3><p>Collect a gold target power-up.</p><div class="progress-track"><i id="wideProgress"></i></div><small id="wideText">FIND THE GOLD TARGET</small></div>
             </article>
+
             <article class="powerup-card double-card" id="doubleCard">
-              <div class="power-icon">💎</div><div><h3>AND-ONE</h3><p>Build a 10-target scoring streak.</p><div class="progress-track"><i id="doubleProgress"></i></div><small id="doubleText">0 / 10 TARGETS</small></div>
+              <div class="power-icon">💎</div>
+              <div><h3>AND-ONE</h3><p>Build a 10-target scoring streak.</p><div class="progress-track"><i id="doubleProgress"></i></div><small id="doubleText">0 / 10 TARGETS</small></div>
             </article>
           </div>
         </div>
@@ -119,8 +131,13 @@
       </section>
     </main>
 
-    <footer class="arena-footer"><span>🏀 FULL COURT BREAKER</span><span>NO DAYS OFF. NO EASY BUCKETS.</span><span>EST. 2026 • THE ARENA</span></footer>
+    <footer class="arena-footer">
+      <span>🏀 FULL COURT BREAKER</span>
+      <span>NO DAYS OFF. NO EASY BUCKETS.</span>
+      <span>EST. 2026 • THE ARENA</span>
+    </footer>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>
