@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Full Court Breaker | Basketball Arcade</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="arena-shell">
+    <header class="masthead">
+      <a class="brand" href="#" aria-label="Full Court Breaker home">
+        <span class="brand-mark">FC<span>B</span></span>
+        <span class="brand-name">FULL COURT <b>BREAKER</b><small>THE BASKETBALL ARCADE</small></span>
+      </a>
+      <div class="masthead-right">
+        <span class="season-tag">SEASON 01 <i></i> LIVE FROM THE ARENA</span>
+        <button id="soundButton" class="sound-button" type="button">🔊 SOUND ON</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero-strip">
+        <div>
+          <p class="kicker">THE CROWD IS READY. THE COURT IS YOURS.</p>
+          <h1>MAKE SOME <em>NOISE.</em></h1>
+          <p class="hero-copy">Break the backboard targets. Catch fire. Take home the championship.</p>
+        </div>
+        <div class="hero-stats">
+          <div><span>CAREER HIGH</span><strong id="highScore">000000</strong></div>
+          <div><span>YOUR RANK</span><strong id="rankDisplay">ROOKIE</strong></div>
+        </div>
+      </section>
+
+      <section class="scoreboard" aria-label="Game scoreboard">
+        <div class="score-cell score-primary"><span>HOME</span><strong id="score">000000</strong><small>POINTS</small></div>
+        <div class="score-cell"><span>QUARTER</span><strong id="level">01</strong><small id="modeLabel">ARCADE</small></div>
+        <div class="score-cell"><span>SHOT CLOCK</span><strong id="clockDisplay">--</strong><small>TIME LEFT</small></div>
+        <div class="score-cell"><span>POSSESSIONS</span><strong id="lives">🏀 🏀 🏀</strong><small>BALLS LEFT</small></div>
+        <div class="score-cell"><span>STREAK</span><strong id="comboDisplay">x1</strong><small>COMBO</small></div>
+      </section>
+
+      <section class="court-section">
+        <div class="court-topline">
+          <div class="court-status"><span class="status-light"></span><span id="gameStatus">PREGAME WARM-UP</span></div>
+          <div class="court-top-actions">
+            <span class="arena-label">🏟 FULL COURT ARENA</span>
+            <button id="pauseButton" class="utility-button" type="button">Ⅱ PAUSE</button>
+          </div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="gameCanvas" width="1000" height="650" aria-label="Basketball brick breaker game"></canvas>
+          <div class="game-overlay" id="overlay">
+            <div class="overlay-panel">
+              <div class="overlay-ball">🏀</div>
+              <p class="kicker" id="overlayKicker">WELCOME TO THE ARENA</p>
+              <h2 id="overlayTitle">IT'S <em>GAME TIME.</em></h2>
+              <p id="overlayMessage">Pick your game mode, step onto the hardwood, and turn every possession into points.</p>
+
+              <div class="mode-picker" id="modePicker">
+                <button class="mode-card selected" data-mode="arcade" type="button">
+                  <span class="mode-icon">🏀</span><b>ARCADE</b><small>Classic climb</small>
+                </button>
+                <button class="mode-card" data-mode="shotclock" type="button">
+                  <span class="mode-icon">⏱️</span><b>SHOT CLOCK</b><small>60-second run</small>
+                </button>
+                <button class="mode-card" data-mode="threepoint" type="button">
+                  <span class="mode-icon">🎯</span><b>3-POINT</b><small>Bonus targets</small>
+                </button>
+                <button class="mode-card" data-mode="championship" type="button">
+                  <span class="mode-icon">🏆</span><b>FINALS</b><small>Boss rounds</small>
+                </button>
+              </div>
+              <button id="startButton" class="tipoff-button" type="button"><span>▶</span> TIP OFF</button>
+              <div class="overlay-foot">MOUSE / TOUCH TO MOVE <b>•</b> ARROW KEYS OR A / D <b>•</b> SPACE TO PAUSE</div>
+            </div>
+          </div>
+          <div id="announcement" class="announcement" aria-live="polite"></div>
+        </div>
+
+        <div class="court-bottomline">
+          <div class="control-hint"><span>⌖</span> MOVE THE HOOP PADDLE TO KEEP THE BALL IN PLAY</div>
+          <div class="court-bottom-right"><span id="powerupStatus">NO ACTIVE POWER-UPS</span></div>
+        </div>
+      </section>
+
+      <section class="lower-grid">
+        <div class="powerup-panel">
+          <div class="section-title">
+            <div><p class="kicker">CHANGE THE MOMENTUM</p><h2>THE <em>HIGHLIGHT REEL</em></h2></div>
+            <span class="section-stamp">SPECIAL ABILITIES</span>
+          </div>
+          <div class="powerup-grid">
+            <article class="powerup-card fire-card" id="fireCard">
+              <div class="power-icon">🔥</div><div><h3>HOT HAND</h3><p>3 clean center-paddle returns.</p><div class="progress-track"><i id="fireProgress"></i></div><small id="fireText">0 / 3 ACCURATE HITS</small></div>
+            </article>
+            <article class="powerup-card multi-card" id="multiCard">
+              <div class="power-icon">🏀</div><div><h3>FAST BREAK</h3><p>Break 5 targets in one run.</p><div class="progress-track"><i id="multiProgress"></i></div><small id="multiText">0 / 5 TARGETS</small></div>
+            </article>
+            <article class="powerup-card wide-card" id="wideCard">
+              <div class="power-icon">💪</div><div><h3>BIG MAN</h3><p>Find the gold championship target.</p><div class="progress-track"><i id="wideProgress"></i></div><small id="wideText">FIND THE GOLD TARGET</small></div>
+            </article>
+            <article class="powerup-card double-card" id="doubleCard">
+              <div class="power-icon">💎</div><div><h3>AND-ONE</h3><p>Build a 10-target scoring streak.</p><div class="progress-track"><i id="doubleProgress"></i></div><small id="doubleText">0 / 10 TARGETS</small></div>
+            </article>
+          </div>
+        </div>
+
+        <aside class="playbook-panel">
+          <p class="kicker">COACH'S PLAYBOOK</p>
+          <h2>KNOW THE <em>RULES.</em></h2>
+          <ul>
+            <li><b>01</b><span><strong>Protect the possession</strong><small>Move the paddle with your mouse, touch, or keys.</small></span></li>
+            <li><b>02</b><span><strong>Attack the paint</strong><small>Every target you break adds points to the board.</small></span></li>
+            <li><b>03</b><span><strong>Get in the zone</strong><small>Build streaks to unlock game-changing abilities.</small></span></li>
+          </ul>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="arena-footer"><span>🏀 FULL COURT BREAKER</span><span>NO DAYS OFF. NO EASY BUCKETS.</span><span>EST. 2026 • THE ARENA</span></footer>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
