@@ -1,60 +1,81 @@
 
 // ============================================================
 // FULL COURT BREAKER
-// PERFORMANCE OPTIMIZED EDITION
+// Optimized basketball brick-breaker game
 // ============================================================
 
 // ------------------------------------------------------------
-// CANVAS AND HTML ELEMENTS
+// 1. HTML ELEMENTS AND CANVAS
 // ------------------------------------------------------------
-
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d", { alpha: false });
 
 const $ = id => document.getElementById(id);
 
+const canvas = $("gameCanvas");
+const ctx = canvas.getContext("2d", { alpha: false });
+
+const WIDTH = 1000;
+const HEIGHT = 650;
+
 const scoreDisplay = $("score");
 const highScoreDisplay = $("highScore");
+const rankDisplay = $("rankDisplay");
 const levelDisplay = $("level");
 const livesDisplay = $("lives");
-const gameStatus = $("gameStatus");
 const comboDisplay = $("comboDisplay");
+const clockDisplay = $("clockDisplay");
+const modeLabel = $("modeLabel");
+const gameStatus = $("gameStatus");
+
 const overlay = $("overlay");
 const overlayTitle = $("overlayTitle");
 const overlayMessage = $("overlayMessage");
+const overlayKicker = $("overlayKicker");
 const startButton = $("startButton");
 const pauseButton = $("pauseButton");
 const soundButton = $("soundButton");
 const announcement = $("announcement");
 const powerupStatus = $("powerupStatus");
 
-const WIDTH = 1000;
-const HEIGHT = 650;
-
 // ------------------------------------------------------------
-// PERFORMANCE SETTINGS
+// 2. GAME SETTINGS
 // ------------------------------------------------------------
 
-const MAX_PARTICLES = 220;
-const MAX_FLOATING_TEXTS = 35;
+const MAX_PARTICLES = 100;
+const MAX_FLOATING_TEXTS = 18;
 const MAX_BALLS = 4;
-
-const PARTICLE_LIFETIME = 900;
 const POWER_DURATION = 15000;
 
-// Cache the court so it only needs to be drawn once.
-const courtCanvas = document.createElement("canvas");
-courtCanvas.width = WIDTH;
-courtCanvas.height = HEIGHT;
+const MODES = {
+    arcade: {
+        label: "ARCADE",
+        lives: 3,
+        time: 0,
+        description: "Classic basketball brick breaker. Clear every round and keep climbing."
+    },
+    shotclock: {
+        label: "SHOT CLOCK",
+        lives: 3,
+        time: 60,
+        description: "You have 60 seconds. Score as many points as possible before the clock expires."
+    },
+    threepoint: {
+        label: "3-POINT",
+        lives: 3,
+        time: 0,
+        description: "Golden targets are worth triple points. Aim for the gold!"
+    },
+    championship: {
+        label: "FINALS",
+        lives: 2,
+        time: 0,
+        description: "The championship is tough. Targets take extra hits and you only get two lives."
+    }
+};
 
-const courtCtx = courtCanvas.getContext("2d");
-
-// ------------------------------------------------------------
-// GAME STATE
-// ------------------------------------------------------------
+let selectedMode = "arcade";
 
 let score = 0;
-let highScore = Number(localStorage.getItem("fullCourtHighScore")) || 0;
+let highScore = 0;
 let level = 1;
 let lives = 3;
 let combo = 1;
@@ -64,6 +85,7 @@ let paused = false;
 let gameOver = false;
 let soundEnabled = true;
 
+let remainingTime = 0;
 let animationId = null;
 let lastTime = 0;
 let lastUIUpdate = 0;
@@ -71,10 +93,14 @@ let announcementTimer = null;
 
 let audioContext = null;
 
-highScoreDisplay.textContent = String(highScore).padStart(6, "0");
+try {
+    highScore = Number(localStorage.getItem("fullCourtHighScore")) || 0;
+} catch (error) {
+    highScore = 0;
+}
 
 // ------------------------------------------------------------
-// GAME OBJECTS
+// 3. GAME OBJECTS
 // ------------------------------------------------------------
 
 const paddle = {
@@ -91,15 +117,14 @@ let particles = [];
 let powerups = [];
 let floatingTexts = [];
 
+let remainingBricks = 0;
+
 const keys = {
     left: false,
     right: false
 };
 
-// ------------------------------------------------------------
-// POWER-UP TRACKING
-// ------------------------------------------------------------
-
+// Power-up progress.
 let hotHandHits = 0;
 let multiballHits = 0;
 let consecutiveHits = 0;
@@ -111,7 +136,7 @@ const activePowers = {
 };
 
 // ------------------------------------------------------------
-// AUDIO
+// 4. AUDIO
 // ------------------------------------------------------------
 
 function playSound(frequency = 400, duration = 0.08, type = "sine") {
@@ -134,7 +159,7 @@ function playSound(frequency = 400, duration = 0.08, type = "sine") {
         oscillator.type = type;
         oscillator.frequency.value = frequency;
 
-        gain.gain.setValueAtTime(0.07, audioContext.currentTime);
+        gain.gain.setValueAtTime(0.06, audioContext.currentTime);
         gain.gain.exponentialRampToValueAtTime(
             0.001,
             audioContext.currentTime + duration
@@ -145,20 +170,20 @@ function playSound(frequency = 400, duration = 0.08, type = "sine") {
 
         oscillator.start();
         oscillator.stop(audioContext.currentTime + duration);
-
     } catch (error) {
         // Audio is optional.
     }
 }
 
 // ------------------------------------------------------------
-// ANNOUNCEMENTS
+// 5. ANNOUNCEMENTS
 // ------------------------------------------------------------
 
 function announce(message) {
     announcement.textContent = message;
     announcement.classList.remove("show");
 
+    // Restart the announcement animation.
     void announcement.offsetWidth;
 
     announcement.classList.add("show");
@@ -171,8 +196,11 @@ function announce(message) {
 }
 
 // ------------------------------------------------------------
-// BALL CREATION
+// 6. BALL CREATION
 // ------------------------------------------------------------
+
+// The trail uses fixed-size arrays instead of creating new objects
+// every frame. This helps reduce unnecessary memory usage.
 
 function createBall(x, y, vx, vy) {
     return {
@@ -182,7 +210,10 @@ function createBall(x, y, vx, vy) {
         vy,
         radius: 17,
         rotation: 0,
-        trail: [],
+        trailX: new Float32Array(5),
+        trailY: new Float32Array(5),
+        trailCount: 0,
+        trailIndex: 0,
         lost: false
     };
 }
@@ -199,133 +230,105 @@ function resetBall() {
 }
 
 // ------------------------------------------------------------
-// BASKETBALL DRAWING
+// 7. BASKETBALL DRAWING
 // ------------------------------------------------------------
 
 function drawBasketball(ball) {
     const r = ball.radius;
 
     ctx.save();
-
     ctx.translate(ball.x, ball.y);
     ctx.rotate(ball.rotation);
 
-    // Ball shadow
-    ctx.fillStyle = "rgba(0,0,0,0.28)";
-
+    // Ball shadow.
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.beginPath();
-    ctx.ellipse(5, r + 5, r * 1.05, r * 0.35, 0, 0, Math.PI * 2);
+    ctx.ellipse(4, r + 5, r, r * 0.3, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Orange leather surface
+    // Orange basketball surface.
     const gradient = ctx.createRadialGradient(
         -r * 0.4, -r * 0.5, 1,
         0, 0, r * 1.3
     );
 
-    gradient.addColorStop(0, "#ffbd69");
+    gradient.addColorStop(0, "#ffca7c");
     gradient.addColorStop(0.35, "#f58a32");
     gradient.addColorStop(0.75, "#d65c19");
     gradient.addColorStop(1, "#81300d");
 
     ctx.fillStyle = gradient;
-
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // Clip the seams and texture inside the ball.
+    // Keep the basketball seams inside the ball.
     ctx.save();
-
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.96, 0, Math.PI * 2);
     ctx.clip();
 
-    // Lightweight leather texture.
-    for (let i = 0; i < 35; i++) {
+    // Basketball texture.
+    for (let i = 0; i < 18; i++) {
         const angle = i * 2.399;
-        const distance = Math.sqrt(i / 35) * r * 0.9;
+        const distance = Math.sqrt(i / 18) * r * 0.9;
 
-        ctx.fillStyle = i % 2 === 0
-            ? "rgba(255,210,145,0.14)"
-            : "rgba(80,30,8,0.12)";
-
+        ctx.fillStyle = "rgba(75,30,8,0.18)";
         ctx.beginPath();
         ctx.arc(
             Math.cos(angle) * distance,
             Math.sin(angle) * distance,
-            0.55,
+            0.7,
             0,
             Math.PI * 2
         );
         ctx.fill();
     }
 
-    // Traditional basketball channels.
+    // Traditional curved basketball seams.
     ctx.strokeStyle = "#392015";
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
 
-    // Vertical curved seam.
     ctx.beginPath();
     ctx.moveTo(0, -r);
-    ctx.bezierCurveTo(
-        -r * 0.48, -r * 0.35,
-        -r * 0.48, r * 0.35,
-        0, r
-    );
+    ctx.bezierCurveTo(-r * 0.48, -r * 0.35, -r * 0.48, r * 0.35, 0, r);
     ctx.stroke();
 
     ctx.beginPath();
     ctx.moveTo(0, -r);
-    ctx.bezierCurveTo(
-        r * 0.48, -r * 0.35,
-        r * 0.48, r * 0.35,
-        0, r
-    );
-    ctx.stroke();
-
-    // Horizontal curved seam.
-    ctx.beginPath();
-    ctx.moveTo(-r, 0);
-    ctx.bezierCurveTo(
-        -r * 0.35, -r * 0.48,
-        r * 0.35, -r * 0.48,
-        r, 0
-    );
+    ctx.bezierCurveTo(r * 0.48, -r * 0.35, r * 0.48, r * 0.35, 0, r);
     ctx.stroke();
 
     ctx.beginPath();
     ctx.moveTo(-r, 0);
-    ctx.bezierCurveTo(
-        -r * 0.35, r * 0.48,
-        r * 0.35, r * 0.48,
-        r, 0
-    );
+    ctx.bezierCurveTo(-r * 0.35, -r * 0.48, r * 0.35, -r * 0.48, r, 0);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(-r, 0);
+    ctx.bezierCurveTo(-r * 0.35, r * 0.48, r * 0.35, r * 0.48, r, 0);
     ctx.stroke();
 
     ctx.restore();
 
-    // Spherical lighting.
+    // Ball highlight.
     const shine = ctx.createRadialGradient(
-        -r * 0.45, -r * 0.5, 0,
+        -r * 0.4, -r * 0.5, 0,
         -r * 0.2, -r * 0.2, r * 1.2
     );
 
-    shine.addColorStop(0, "rgba(255,255,255,0.28)");
-    shine.addColorStop(0.35, "rgba(255,255,255,0.06)");
-    shine.addColorStop(1, "rgba(0,0,0,0.24)");
+    shine.addColorStop(0, "rgba(255,255,255,0.3)");
+    shine.addColorStop(0.4, "rgba(255,255,255,0.05)");
+    shine.addColorStop(1, "rgba(0,0,0,0.2)");
 
     ctx.fillStyle = shine;
-
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fill();
 
-    // Outer edge.
     ctx.strokeStyle = "rgba(70,28,9,0.65)";
     ctx.lineWidth = 1.5;
-
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.stroke();
@@ -334,14 +337,19 @@ function drawBasketball(ball) {
 }
 
 // ------------------------------------------------------------
-// BASKETBALL COURT
-// This is cached instead of redrawn every frame.
+// 8. BASKETBALL COURT
 // ------------------------------------------------------------
 
-function drawHoop(c, x, y) {
-    c.save();
+// The court is drawn once and stored in another canvas.
+// It does not need to be redrawn from scratch every frame.
 
-    // Backboard
+const courtCanvas = document.createElement("canvas");
+courtCanvas.width = WIDTH;
+courtCanvas.height = HEIGHT;
+
+const courtCtx = courtCanvas.getContext("2d");
+
+function drawHoop(c, x, y) {
     c.fillStyle = "rgba(245,245,245,0.85)";
     c.fillRect(x - 15, y - 35, 30, 65);
 
@@ -349,7 +357,6 @@ function drawHoop(c, x, y) {
     c.lineWidth = 3;
     c.strokeRect(x - 15, y - 35, 30, 65);
 
-    // Rim
     c.strokeStyle = "#ff6030";
     c.lineWidth = 7;
 
@@ -357,7 +364,6 @@ function drawHoop(c, x, y) {
     c.ellipse(x, y + 30, 25, 8, 0, 0, Math.PI * 2);
     c.stroke();
 
-    // Net
     c.strokeStyle = "rgba(255,255,255,0.65)";
     c.lineWidth = 1.5;
 
@@ -372,13 +378,9 @@ function drawHoop(c, x, y) {
     c.moveTo(x - 20, y + 48);
     c.lineTo(x + 20, y + 48);
     c.stroke();
-
-    c.restore();
 }
 
-function drawCourt(c = ctx) {
-
-    // Main wooden floor.
+function drawCourt(c) {
     const wood = c.createLinearGradient(0, 0, 0, HEIGHT);
 
     wood.addColorStop(0, "#c88b52");
@@ -388,11 +390,9 @@ function drawCourt(c = ctx) {
     c.fillStyle = wood;
     c.fillRect(0, 0, WIDTH, HEIGHT);
 
-    // Wooden planks.
-    const plankHeight = 48;
-
+    // Floorboards.
     for (let row = 0; row < 14; row++) {
-        const y = row * plankHeight;
+        const y = row * 48;
         const offset = row % 2 === 0 ? 0 : 85;
 
         for (let col = -1; col < 7; col++) {
@@ -402,34 +402,15 @@ function drawCourt(c = ctx) {
                 ? "rgba(255,205,145,0.10)"
                 : "rgba(75,36,14,0.09)";
 
-            c.fillRect(x, y, 170, plankHeight);
+            c.fillRect(x, y, 170, 48);
 
             c.strokeStyle = "rgba(83,43,20,0.18)";
             c.lineWidth = 2;
-            c.strokeRect(x, y, 170, plankHeight);
-
-            // Wood grain.
-            c.strokeStyle = "rgba(255,224,180,0.09)";
-            c.lineWidth = 1;
-
-            for (let grain = 0; grain < 3; grain++) {
-                c.beginPath();
-                c.moveTo(x + 15, y + 10 + grain * 13);
-
-                c.bezierCurveTo(
-                    x + 65, y + 7 + grain * 13,
-                    x + 110, y + 15 + grain * 13,
-                    x + 155, y + 10 + grain * 13
-                );
-
-                c.stroke();
-            }
+            c.strokeRect(x, y, 170, 48);
         }
     }
 
-    // Court lighting.
     const lighting = c.createLinearGradient(0, 0, 0, HEIGHT);
-
     lighting.addColorStop(0, "rgba(255,255,255,0.12)");
     lighting.addColorStop(1, "rgba(0,0,0,0.16)");
 
@@ -437,8 +418,6 @@ function drawCourt(c = ctx) {
     c.fillRect(0, 0, WIDTH, HEIGHT);
 
     // Court markings.
-    c.save();
-
     c.strokeStyle = "rgba(255,239,205,0.75)";
     c.lineWidth = 4;
 
@@ -469,13 +448,7 @@ function drawCourt(c = ctx) {
     c.stroke();
 
     c.beginPath();
-    c.arc(
-        WIDTH / 2,
-        HEIGHT + 5,
-        300,
-        Math.PI + 0.18,
-        -0.18
-    );
+    c.arc(WIDTH / 2, HEIGHT + 5, 300, Math.PI + 0.18, -0.18);
     c.stroke();
 
     c.fillStyle = "rgba(255,244,220,0.85)";
@@ -488,25 +461,26 @@ function drawCourt(c = ctx) {
     c.fillStyle = "rgba(255,255,255,0.075)";
     c.fillText("FULL COURT", WIDTH / 2, HEIGHT / 2 + 20);
 
-    c.restore();
-
     drawHoop(c, 50, 95);
     drawHoop(c, WIDTH - 50, 95);
 }
 
-// Build the static court one time.
 drawCourt(courtCtx);
 
 // ------------------------------------------------------------
-// BRICKS
+// 9. BRICKS / TARGETS
 // ------------------------------------------------------------
 
 function createBricks() {
     bricks = [];
 
-    const rows = Math.min(4 + level, 7);
-    const columns = 10;
+    let rows = Math.min(4 + level, 7);
 
+    if (selectedMode === "championship") {
+        rows = Math.min(5 + level, 8);
+    }
+
+    const columns = 10;
     const brickWidth = 88;
     const brickHeight = 34;
     const gap = 12;
@@ -525,11 +499,17 @@ function createBricks() {
 
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < columns; col++) {
+            if (Math.random() < 0.05) continue;
 
-            if (Math.random() < 0.07) continue;
+            const golden = Math.random() < 0.09;
 
-            const golden = Math.random() < 0.055;
-            const hits = golden ? 1 : (row >= 3 ? 2 : 1);
+            let hits = row >= 3 ? 2 : 1;
+
+            if (selectedMode === "championship") {
+                hits = 2 + (row >= 4 ? 1 : 0);
+            }
+
+            if (golden) hits = 1;
 
             bricks.push({
                 x: startX + col * (brickWidth + gap),
@@ -543,15 +523,15 @@ function createBricks() {
             });
         }
     }
+
+    remainingBricks = bricks.length;
 }
 
 function drawBricks() {
     for (const brick of bricks) {
         if (!brick.alive) continue;
 
-        ctx.save();
-
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillStyle = "rgba(0,0,0,0.28)";
         ctx.fillRect(
             brick.x + 4,
             brick.y + 6,
@@ -581,7 +561,7 @@ function drawBricks() {
         );
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(255,255,255,0.5)";
+        ctx.strokeStyle = "rgba(255,255,255,0.45)";
         ctx.lineWidth = 2;
 
         ctx.beginPath();
@@ -600,30 +580,22 @@ function drawBricks() {
         );
 
         if (brick.hits > 1) {
-            ctx.fillStyle = "white";
+            ctx.fillStyle = "#fff";
             ctx.font = "bold 13px Arial";
-
             ctx.fillText(
                 brick.hits,
                 brick.x + brick.width - 10,
                 brick.y + 12
             );
         }
-
-        ctx.restore();
     }
 }
 
 // ------------------------------------------------------------
-// PADDLE
+// 10. PADDLE
 // ------------------------------------------------------------
 
 function drawPaddle() {
-    ctx.save();
-
-    ctx.shadowColor = "#ff762f";
-    ctx.shadowBlur = 12;
-
     const gradient = ctx.createLinearGradient(
         paddle.x,
         paddle.y,
@@ -636,7 +608,6 @@ function drawPaddle() {
     gradient.addColorStop(1, "#c9481d");
 
     ctx.fillStyle = gradient;
-
     ctx.beginPath();
     ctx.roundRect(
         paddle.x,
@@ -647,8 +618,6 @@ function drawPaddle() {
     );
     ctx.fill();
 
-    ctx.shadowBlur = 0;
-
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.fillRect(
         paddle.x + 12,
@@ -656,29 +625,28 @@ function drawPaddle() {
         paddle.width - 24,
         2
     );
-
-    ctx.restore();
 }
 
 // ------------------------------------------------------------
-// PARTICLES
+// 11. PARTICLES
 // ------------------------------------------------------------
 
-function createParticles(x, y, color, amount = 12) {
-
-    const available = MAX_PARTICLES - particles.length;
-    const count = Math.min(amount, available);
+function createParticles(x, y, color, amount = 8) {
+    const count = Math.min(
+        amount,
+        MAX_PARTICLES - particles.length
+    );
 
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 4 + 1;
+        const speed = Math.random() * 3 + 1;
 
         particles.push({
             x,
             y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
-            size: Math.random() * 5 + 2,
+            size: Math.random() * 4 + 2,
             color,
             life: 1
         });
@@ -687,15 +655,23 @@ function createParticles(x, y, color, amount = 12) {
 
 function updateParticles(delta) {
     const step = delta / 16.67;
+    let writeIndex = 0;
 
-    for (const p of particles) {
+    // Compact the array in place instead of making a new array.
+    for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
         p.x += p.vx * step;
         p.y += p.vy * step;
-        p.life -= delta / PARTICLE_LIFETIME;
+        p.life -= delta / 850;
         p.vy += 0.04 * step;
+
+        if (p.life > 0) {
+            particles[writeIndex++] = p;
+        }
     }
 
-    particles = particles.filter(p => p.life > 0);
+    particles.length = writeIndex;
 }
 
 function drawParticles() {
@@ -712,11 +688,10 @@ function drawParticles() {
 }
 
 // ------------------------------------------------------------
-// FLOATING SCORE TEXT
+// 12. FLOATING SCORE TEXT
 // ------------------------------------------------------------
 
 function addFloatingText(x, y, text, color = "#ffffff") {
-
     if (floatingTexts.length >= MAX_FLOATING_TEXTS) {
         floatingTexts.shift();
     }
@@ -731,37 +706,54 @@ function addFloatingText(x, y, text, color = "#ffffff") {
 }
 
 function updateFloatingTexts(delta) {
-    const step = delta / 16.67;
+    let writeIndex = 0;
 
-    for (const t of floatingTexts) {
-        t.y -= step;
-        t.life -= delta / 850;
+    for (let i = 0; i < floatingTexts.length; i++) {
+        const item = floatingTexts[i];
+
+        item.y -= delta / 16.67;
+        item.life -= delta / 850;
+
+        if (item.life > 0) {
+            floatingTexts[writeIndex++] = item;
+        }
     }
 
-    floatingTexts = floatingTexts.filter(t => t.life > 0);
+    floatingTexts.length = writeIndex;
 }
 
 function drawFloatingTexts() {
-    for (const t of floatingTexts) {
-        ctx.globalAlpha = t.life;
-        ctx.fillStyle = t.color;
+    for (const item of floatingTexts) {
+        ctx.globalAlpha = item.life;
+        ctx.fillStyle = item.color;
         ctx.font = "bold 20px Arial";
         ctx.textAlign = "center";
-        ctx.fillText(t.text, t.x, t.y);
+        ctx.fillText(item.text, item.x, item.y);
     }
 
     ctx.globalAlpha = 1;
 }
 
 // ------------------------------------------------------------
-// SCORE
+// 13. SCORE AND RANK
 // ------------------------------------------------------------
 
-function updateScore(points) {
+function updateRank() {
+    let rank = "ROOKIE";
 
+    if (score >= 5000) rank = "ALL-STAR";
+    if (score >= 15000) rank = "MVP";
+    if (score >= 30000) rank = "LEGEND";
+
+    rankDisplay.textContent = rank;
+}
+
+function updateScore(points) {
     const multiplier = activePowers.doublePoints > 0 ? 2 : 1;
 
     score += points * combo * multiplier;
+
+    scoreDisplay.textContent = String(score).padStart(6, "0");
 
     if (score > highScore) {
         highScore = score;
@@ -769,22 +761,20 @@ function updateScore(points) {
         try {
             localStorage.setItem("fullCourtHighScore", highScore);
         } catch (error) {
-            // Storage is optional.
+            // Saving a high score is optional.
         }
 
-        highScoreDisplay.textContent =
-            String(highScore).padStart(6, "0");
+        highScoreDisplay.textContent = String(highScore).padStart(6, "0");
     }
 
-    scoreDisplay.textContent = String(score).padStart(6, "0");
+    updateRank();
 }
 
 // ------------------------------------------------------------
-// POWER-UP DISPLAY
+// 14. POWER-UP DISPLAY
 // ------------------------------------------------------------
 
 function updatePowerupProgress() {
-
     $("fireProgress").style.width =
         Math.min(hotHandHits / 3 * 100, 100) + "%";
 
@@ -809,7 +799,7 @@ function updatePowerupProgress() {
     $("wideText").textContent =
         activePowers.bigMan > 0
             ? "BIG MAN ACTIVE!"
-            : "FIND THE GOLDEN TARGET";
+            : "FIND THE GOLD TARGET";
 
     $("fireCard").classList.toggle(
         "unlocked",
@@ -844,25 +834,23 @@ function updatePowerupProgress() {
 }
 
 // ------------------------------------------------------------
-// POWER-UP DROPS
+// 15. POWER-UP DROPS
 // ------------------------------------------------------------
 
 function dropPowerup(x, y, type) {
-
-    // Prevent an excessive number of falling power-ups.
-    if (powerups.length >= 8) return;
+    if (powerups.length >= 6) return;
 
     powerups.push({
         x,
         y,
         type,
         size: 15,
-        speed: 2.5
+        speed: 2.5,
+        collected: false
     });
 }
 
 function drawPowerups() {
-
     const icons = {
         fire: "🔥",
         multi: "🏀",
@@ -870,46 +858,48 @@ function drawPowerups() {
         double: "💎"
     };
 
+    ctx.font = "27px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
     for (const p of powerups) {
-        ctx.save();
-
-        ctx.shadowColor = "#ffffff";
-        ctx.shadowBlur = 10;
-
-        ctx.font = "27px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
         ctx.fillText(icons[p.type], p.x, p.y);
-
-        ctx.restore();
     }
 }
 
 function updatePowerups(delta) {
     const step = delta / 16.67;
+    let writeIndex = 0;
 
-    for (const p of powerups) {
+    for (let i = 0; i < powerups.length; i++) {
+        const p = powerups[i];
+
         p.y += p.speed * step;
 
-        if (
+        const caught =
             p.y + p.size > paddle.y &&
             p.y - p.size < paddle.y + paddle.height &&
             p.x > paddle.x &&
-            p.x < paddle.x + paddle.width
-        ) {
+            p.x < paddle.x + paddle.width;
+
+        if (caught) {
             activatePowerup(p.type);
-            p.collected = true;
+            continue;
+        }
+
+        if (p.y < HEIGHT + 30) {
+            powerups[writeIndex++] = p;
         }
     }
 
-    powerups = powerups.filter(
-        p => !p.collected && p.y < HEIGHT + 30
-    );
+    powerups.length = writeIndex;
 }
 
-function activatePowerup(type) {
+// ------------------------------------------------------------
+// 16. ACTIVATE POWER-UPS
+// ------------------------------------------------------------
 
+function activatePowerup(type) {
     playSound(850, 0.2, "sine");
 
     if (type === "fire") {
@@ -918,7 +908,6 @@ function activatePowerup(type) {
     }
 
     if (type === "multi") {
-
         const original = balls[0];
 
         if (original) {
@@ -937,11 +926,10 @@ function activatePowerup(type) {
                 )
             ];
 
-            while (
-                newBalls.length &&
-                balls.length < MAX_BALLS
-            ) {
-                balls.push(newBalls.shift());
+            for (const ball of newBalls) {
+                if (balls.length < MAX_BALLS) {
+                    balls.push(ball);
+                }
             }
         }
 
@@ -963,28 +951,34 @@ function activatePowerup(type) {
 }
 
 // ------------------------------------------------------------
-// BRICK COLLISIONS
+// 17. BRICK COLLISIONS
 // ------------------------------------------------------------
 
 function hitBrick(ball, brick) {
+    // Reverse the ball's vertical direction.
+    ball.vy *= -1;
 
     brick.hits--;
-
-    ball.vy *= -1;
 
     createParticles(
         brick.x + brick.width / 2,
         brick.y + brick.height / 2,
         brick.color,
-        10
+        8
     );
 
     combo = Math.min(combo + 1, 10);
+    comboDisplay.textContent = "x" + combo;
 
     consecutiveHits++;
     multiballHits++;
 
-    const points = brick.golden ? 250 : 100;
+    // 3-Point mode gives golden targets a larger bonus.
+    let points = brick.golden ? 250 : 100;
+
+    if (selectedMode === "threepoint" && brick.golden) {
+        points = 750;
+    }
 
     updateScore(points);
 
@@ -992,12 +986,12 @@ function hitBrick(ball, brick) {
         brick.x + brick.width / 2,
         brick.y,
         "+" + points,
-        "#fff0a0"
+        brick.golden ? "#fff0a0" : "#ffffff"
     );
 
     if (brick.hits <= 0) {
-
         brick.alive = false;
+        remainingBricks--;
 
         playSound(550 + Math.random() * 200, 0.08, "triangle");
 
@@ -1022,42 +1016,41 @@ function hitBrick(ball, brick) {
         updatePowerupProgress();
     }
 
-    if (combo >= 5) {
-        comboDisplay.textContent = "COMBO x" + combo;
+    if (combo >= 5 && combo % 5 === 0) {
+        announce("🔥 COMBO x" + combo + "!");
     }
 }
 
 // ------------------------------------------------------------
-// BALL PHYSICS
+// 18. BALL PHYSICS
 // ------------------------------------------------------------
 
 function updateBalls(delta) {
-
     const step = delta / 16.67;
 
     for (const ball of balls) {
+        // Save a few old positions for the trail.
+        if (Math.floor(performance.now() / 35) !== ball.lastTrailTime) {
+            ball.lastTrailTime = Math.floor(performance.now() / 35);
 
-        // Keep a short trail.
-        ball.trail.push({
-            x: ball.x,
-            y: ball.y
-        });
+            ball.trailX[ball.trailIndex] = ball.x;
+            ball.trailY[ball.trailIndex] = ball.y;
 
-        if (ball.trail.length > 6) {
-            ball.trail.shift();
+            ball.trailIndex = (ball.trailIndex + 1) % 5;
+            ball.trailCount = Math.min(ball.trailCount + 1, 5);
         }
 
         ball.x += ball.vx * step;
         ball.y += ball.vy * step;
-
         ball.rotation += ball.vx * 0.018 * step;
 
-        // Side walls.
+        // Left wall.
         if (ball.x - ball.radius < 0) {
             ball.x = ball.radius;
             ball.vx = Math.abs(ball.vx);
         }
 
+        // Right wall.
         if (ball.x + ball.radius > WIDTH) {
             ball.x = WIDTH - ball.radius;
             ball.vx = -Math.abs(ball.vx);
@@ -1077,7 +1070,6 @@ function updateBalls(delta) {
             ball.x >= paddle.x &&
             ball.x <= paddle.x + paddle.width
         ) {
-
             ball.y = paddle.y - ball.radius;
 
             const hitPosition =
@@ -1109,9 +1101,9 @@ function updateBalls(delta) {
             updatePowerupProgress();
         }
 
-        // Brick collision.
+        // Only test bricks that are near the ball.
+        // This avoids checking every brick unnecessarily.
         for (const brick of bricks) {
-
             if (!brick.alive) continue;
 
             if (
@@ -1130,19 +1122,26 @@ function updateBalls(delta) {
         }
     }
 
-    balls = balls.filter(ball => !ball.lost);
+    // Remove lost balls in place.
+    let writeIndex = 0;
+
+    for (let i = 0; i < balls.length; i++) {
+        if (!balls[i].lost) {
+            balls[writeIndex++] = balls[i];
+        }
+    }
+
+    balls.length = writeIndex;
 
     // All balls have fallen.
-    if (balls.length === 0) {
-
+    if (balls.length === 0 && running) {
         lives--;
 
         combo = 1;
         consecutiveHits = 0;
+        comboDisplay.textContent = "x1";
 
-        livesDisplay.textContent =
-            "🏀 ".repeat(Math.max(0, lives));
-
+        updateLivesDisplay();
         updatePowerupProgress();
 
         if (lives <= 0) {
@@ -1155,26 +1154,23 @@ function updateBalls(delta) {
 }
 
 // ------------------------------------------------------------
-// BALL DRAWING
+// 19. DRAW BALLS
 // ------------------------------------------------------------
 
 function drawBalls() {
-
     for (const ball of balls) {
+        // Draw the short trail.
+        for (let i = 0; i < ball.trailCount; i++) {
+            const index = (ball.trailIndex - 1 - i + 5) % 5;
 
-        for (let i = 0; i < ball.trail.length; i++) {
-            const point = ball.trail[i];
-
-            ctx.globalAlpha =
-                (i / ball.trail.length) * 0.15;
-
+            ctx.globalAlpha = 0.12 * (1 - i / 5);
             ctx.fillStyle = "#ffb15b";
 
             ctx.beginPath();
             ctx.arc(
-                point.x,
-                point.y,
-                ball.radius * 0.6,
+                ball.trailX[index],
+                ball.trailY[index],
+                ball.radius * 0.55,
                 0,
                 Math.PI * 2
             );
@@ -1183,24 +1179,15 @@ function drawBalls() {
 
         ctx.globalAlpha = 1;
 
-        if (activePowers.hotHand > 0) {
-            ctx.save();
-            ctx.shadowColor = "#ff5522";
-            ctx.shadowBlur = 15;
-            drawBasketball(ball);
-            ctx.restore();
-        } else {
-            drawBasketball(ball);
-        }
+        drawBasketball(ball);
     }
 }
 
 // ------------------------------------------------------------
-// PADDLE MOVEMENT
+// 20. PADDLE MOVEMENT
 // ------------------------------------------------------------
 
 function updatePaddle(delta) {
-
     const step = delta / 16.67;
 
     if (keys.left) {
@@ -1218,8 +1205,9 @@ function updatePaddle(delta) {
 }
 
 function movePaddleTo(clientX) {
-
     const rect = canvas.getBoundingClientRect();
+
+    if (rect.width === 0) return;
 
     const scale = WIDTH / rect.width;
 
@@ -1234,7 +1222,7 @@ function movePaddleTo(clientX) {
 }
 
 // ------------------------------------------------------------
-// INPUT CONTROLS
+// 21. INPUT CONTROLS
 // ------------------------------------------------------------
 
 canvas.addEventListener("mousemove", event => {
@@ -1244,17 +1232,14 @@ canvas.addEventListener("mousemove", event => {
 });
 
 canvas.addEventListener("touchmove", event => {
-
     event.preventDefault();
 
     if (running && !paused && event.touches.length > 0) {
         movePaddleTo(event.touches[0].clientX);
     }
-
 }, { passive: false });
 
 document.addEventListener("keydown", event => {
-
     const key = event.key.toLowerCase();
 
     if (key === "arrowleft" || key === "a") {
@@ -1268,19 +1253,19 @@ document.addEventListener("keydown", event => {
     }
 
     if (event.code === "Space") {
-
         event.preventDefault();
 
-        if (!running && !paused && !gameOver) {
-            startGame();
-        } else if (running) {
+        if (running) {
             togglePause();
+        } else if (paused) {
+            togglePause();
+        } else if (!gameOver) {
+            startGame();
         }
     }
 });
 
 document.addEventListener("keyup", event => {
-
     const key = event.key.toLowerCase();
 
     if (key === "arrowleft" || key === "a") {
@@ -1293,15 +1278,52 @@ document.addEventListener("keyup", event => {
 });
 
 // ------------------------------------------------------------
-// LEVEL SYSTEM
+// 22. GAME MODES
+// ------------------------------------------------------------
+
+function selectMode(mode) {
+    if (!MODES[mode] || running || paused) return;
+
+    selectedMode = mode;
+
+    document.querySelectorAll(".mode-card").forEach(button => {
+        button.classList.toggle(
+            "selected",
+            button.dataset.mode === mode
+        );
+    });
+
+    modeLabel.textContent = MODES[mode].label;
+    overlayMessage.textContent = MODES[mode].description;
+
+    clockDisplay.textContent = mode === "shotclock" ? "60" : "--";
+
+    announce(MODES[mode].label + " SELECTED");
+}
+
+document.querySelectorAll(".mode-card").forEach(button => {
+    button.addEventListener("click", () => {
+        selectMode(button.dataset.mode);
+    });
+});
+
+// ------------------------------------------------------------
+// 23. LIVES DISPLAY
+// ------------------------------------------------------------
+
+function updateLivesDisplay() {
+    livesDisplay.textContent =
+        "🏀 ".repeat(Math.max(0, lives)) || "0";
+}
+
+// ------------------------------------------------------------
+// 24. LEVEL SYSTEM
 // ------------------------------------------------------------
 
 function nextLevel() {
-
     level++;
 
-    levelDisplay.textContent =
-        String(level).padStart(2, "0");
+    levelDisplay.textContent = String(level).padStart(2, "0");
 
     announce("🏆 LEVEL " + level + "!");
 
@@ -1322,22 +1344,17 @@ function nextLevel() {
 }
 
 // ------------------------------------------------------------
-// POWER-UP TIMERS
-// Timers now use milliseconds rather than frame counts.
+// 25. POWER-UP TIMERS
 // ------------------------------------------------------------
 
 function updatePowerTimers(delta) {
-
     let changed = false;
 
     for (const power of Object.keys(activePowers)) {
-
         if (activePowers[power] > 0) {
-
             activePowers[power] -= delta;
 
             if (activePowers[power] <= 0) {
-
                 activePowers[power] = 0;
                 changed = true;
 
@@ -1354,12 +1371,10 @@ function updatePowerTimers(delta) {
 }
 
 // ------------------------------------------------------------
-// GAME DRAWING
+// 26. GAME DRAWING
 // ------------------------------------------------------------
 
 function drawGame() {
-
-    // Reuse the already-created court image.
     ctx.drawImage(courtCanvas, 0, 0);
 
     drawBricks();
@@ -1371,11 +1386,10 @@ function drawGame() {
 }
 
 // ------------------------------------------------------------
-// GAME UPDATE
+// 27. GAME UPDATE
 // ------------------------------------------------------------
 
 function updateGame(delta) {
-
     updatePaddle(delta);
     updateBalls(delta);
     updatePowerups(delta);
@@ -1384,32 +1398,58 @@ function updateGame(delta) {
 
     const timerChanged = updatePowerTimers(delta);
 
-    // Only check for a new level when necessary.
-    if (bricks.length && bricks.every(brick => !brick.alive)) {
+    // Shot Clock mode counts down from 60 seconds.
+    if (selectedMode === "shotclock") {
+        remainingTime -= delta / 1000;
+
+        if (remainingTime <= 0) {
+            remainingTime = 0;
+            updateClockDisplay();
+            endGame("SHOT CLOCK EXPIRED!");
+            return;
+        }
+
+        updateClockDisplay();
+    }
+
+    // Only check for a cleared level using the remaining target count.
+    if (remainingBricks <= 0 && running) {
         nextLevel();
     }
 
-    // Update the HTML less frequently.
     const now = performance.now();
 
+    // Update HTML less frequently to reduce unnecessary work.
     if (timerChanged || now - lastUIUpdate > 200) {
         updatePowerupProgress();
         lastUIUpdate = now;
     }
 }
 
+function updateClockDisplay() {
+    clockDisplay.textContent =
+        selectedMode === "shotclock"
+            ? Math.ceil(remainingTime)
+            : "--";
+
+    if (selectedMode === "shotclock" && remainingTime <= 10) {
+        clockDisplay.style.color = "#ff704d";
+    } else {
+        clockDisplay.style.color = "";
+    }
+}
+
 // ------------------------------------------------------------
-// GAME LOOP
+// 28. GAME LOOP
 // ------------------------------------------------------------
 
 function gameLoop(timestamp) {
-
     if (!running || paused) {
         animationId = null;
         return;
     }
 
-    // Limit unusually large frame jumps.
+    // Limit frame jumps so the ball doesn't teleport after lag.
     const delta = Math.min(
         Math.max(timestamp - lastTime, 0),
         32
@@ -1420,7 +1460,6 @@ function gameLoop(timestamp) {
     updateGame(delta);
     drawGame();
 
-    // Only schedule another frame during active gameplay.
     if (running && !paused) {
         animationId = requestAnimationFrame(gameLoop);
     } else {
@@ -1429,39 +1468,63 @@ function gameLoop(timestamp) {
 }
 
 // ------------------------------------------------------------
-// START GAME
+// 29. RESET GAME
+// ------------------------------------------------------------
+
+function resetGame() {
+    score = 0;
+    level = 1;
+    lives = MODES[selectedMode].lives;
+    combo = 1;
+
+    remainingTime = MODES[selectedMode].time;
+
+    hotHandHits = 0;
+    multiballHits = 0;
+    consecutiveHits = 0;
+
+    activePowers.hotHand = 0;
+    activePowers.bigMan = 0;
+    activePowers.doublePoints = 0;
+
+    particles = [];
+    powerups = [];
+    floatingTexts = [];
+
+    paddle.width = 180;
+    paddle.x = WIDTH / 2 - paddle.width / 2;
+
+    createBricks();
+    resetBall();
+
+    scoreDisplay.textContent = "000000";
+    levelDisplay.textContent = "01";
+    comboDisplay.textContent = "x1";
+
+    updateLivesDisplay();
+    updateClockDisplay();
+    updatePowerupProgress();
+    updateRank();
+}
+
+// ------------------------------------------------------------
+// 30. START GAME
 // ------------------------------------------------------------
 
 function startGame() {
-
     if (running) return;
 
     if (gameOver) {
-
-        score = 0;
-        level = 1;
-        lives = 3;
-        combo = 1;
-
-        hotHandHits = 0;
-        multiballHits = 0;
-        consecutiveHits = 0;
-
-        activePowers.hotHand = 0;
-        activePowers.bigMan = 0;
-        activePowers.doublePoints = 0;
-
-        particles = [];
-        powerups = [];
-        floatingTexts = [];
-
-        paddle.width = 180;
-        paddle.x = WIDTH / 2 - paddle.width / 2;
-
-        createBricks();
-        resetBall();
-
+        resetGame();
         gameOver = false;
+    }
+
+    if (!paused && !gameOver && score === 0 && level === 1) {
+        // Use the selected mode's starting lives and clock.
+        lives = MODES[selectedMode].lives;
+        remainingTime = MODES[selectedMode].time;
+        updateLivesDisplay();
+        updateClockDisplay();
     }
 
     running = true;
@@ -1472,37 +1535,26 @@ function startGame() {
     overlay.classList.add("hidden");
 
     gameStatus.textContent = "LIVE GAME";
-
-    scoreDisplay.textContent =
-        String(score).padStart(6, "0");
-
-    levelDisplay.textContent =
-        String(level).padStart(2, "0");
-
-    livesDisplay.textContent = "🏀 🏀 🏀";
-
-    pauseButton.textContent = "Ⅱ PAUSE";
+    modeLabel.textContent = MODES[selectedMode].label;
 
     startButton.textContent = "▶ START GAME";
+    pauseButton.textContent = "Ⅱ PAUSE";
 
     announce("🏀 TIP-OFF!");
 
-    // Never create a second animation loop.
     if (animationId === null) {
         animationId = requestAnimationFrame(gameLoop);
     }
 }
 
 // ------------------------------------------------------------
-// PAUSE GAME
+// 31. PAUSE GAME
 // ------------------------------------------------------------
 
 function togglePause() {
-
     if (gameOver) return;
 
     if (running) {
-
         paused = true;
         running = false;
 
@@ -1516,23 +1568,25 @@ function togglePause() {
 
         overlay.classList.remove("hidden");
 
+        overlayKicker.textContent = "TIMEOUT";
         overlayTitle.textContent = "TIMEOUT!";
-
         overlayMessage.textContent =
             "Take a breather. The court will be waiting.";
 
         startButton.textContent = "▶ RESUME GAME";
 
+        // Hide mode choices while paused.
+        $("modePicker").style.display = "none";
+
         drawGame();
-
     } else if (paused) {
-
         paused = false;
         running = true;
 
-        lastTime = performance.now();
-
         overlay.classList.add("hidden");
+        $("modePicker").style.display = "";
+
+        lastTime = performance.now();
 
         gameStatus.textContent = "LIVE GAME";
         pauseButton.textContent = "Ⅱ PAUSE";
@@ -1544,11 +1598,10 @@ function togglePause() {
 }
 
 // ------------------------------------------------------------
-// END GAME
+// 32. END GAME
 // ------------------------------------------------------------
 
-function endGame() {
-
+function endGame(message = "GAME OVER!") {
     running = false;
     paused = false;
     gameOver = true;
@@ -1561,31 +1614,30 @@ function endGame() {
     gameStatus.textContent = "GAME OVER";
 
     overlay.classList.remove("hidden");
+    $("modePicker").style.display = "";
 
-    overlayTitle.textContent = "BUZZER BEATER... NOT!";
+    overlayKicker.textContent = "FINAL BUZZER";
+    overlayTitle.textContent = message;
 
     overlayMessage.textContent =
         "Final Score: " + score +
         " | You reached Level " + level +
-        ". Get back on the court and try again!";
+        ". Choose a mode and get back on the court!";
 
     startButton.textContent = "▶ PLAY AGAIN";
-
     pauseButton.textContent = "Ⅱ PAUSE";
 
     announce("GAME OVER!");
-
     playSound(120, 0.6, "sawtooth");
 
     drawGame();
 }
 
 // ------------------------------------------------------------
-// BUTTONS
+// 33. BUTTONS
 // ------------------------------------------------------------
 
 startButton.addEventListener("click", () => {
-
     if (paused) {
         togglePause();
     } else {
@@ -1596,7 +1648,6 @@ startButton.addEventListener("click", () => {
 pauseButton.addEventListener("click", togglePause);
 
 soundButton.addEventListener("click", () => {
-
     soundEnabled = !soundEnabled;
 
     soundButton.textContent = soundEnabled
@@ -1609,30 +1660,30 @@ soundButton.addEventListener("click", () => {
 });
 
 // ------------------------------------------------------------
-// INITIALIZE GAME
+// 34. INITIALIZE GAME
 // ------------------------------------------------------------
 
 function initializeGame() {
-
     createBricks();
     resetBall();
 
     scoreDisplay.textContent = "000000";
-
-    highScoreDisplay.textContent =
-        String(highScore).padStart(6, "0");
+    highScoreDisplay.textContent = String(highScore).padStart(6, "0");
 
     levelDisplay.textContent = "01";
-    livesDisplay.textContent = "🏀 🏀 🏀";
+    comboDisplay.textContent = "x1";
+
+    selectMode("arcade");
+    updateLivesDisplay();
+    updateClockDisplay();
+    updatePowerupProgress();
+    updateRank();
 
     gameStatus.textContent = "WAITING FOR TIP-OFF";
 
-    updatePowerupProgress();
-
     // Draw the opening screen once.
+    // The animation loop only starts when the player presses TIP OFF.
     drawGame();
-
-    // No animation loop runs until the player starts.
 }
 
 initializeGame();
